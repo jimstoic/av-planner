@@ -11,7 +11,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { format } from "date-fns";
 import { Calendar as CalendarIcon, Save, FolderOpen, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
-import useDrivePicker from 'react-google-drive-picker';
 
 export function ProjectInfoView() {
     const {
@@ -25,7 +24,8 @@ export function ProjectInfoView() {
         updateMetadata
     } = useProjectStore();
 
-    const [openPicker, authResponse] = useDrivePicker();
+    // Removed Picker Hook
+
 
     const [formData, setFormData] = useState({
         name: "",
@@ -80,36 +80,8 @@ export function ProjectInfoView() {
         setIsDirty(true);
     };
 
-    const [isPicking, setIsPicking] = useState(false);
+    // Picker logic removed
 
-    const handleOpenPicker = () => {
-        setIsPicking(true);
-        try {
-            openPicker({
-                clientId: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "",
-                developerKey: process.env.NEXT_PUBLIC_GOOGLE_API_KEY || "",
-                viewId: "FOLDERS",
-                showUploadView: true,
-                showUploadFolders: true,
-                supportDrives: true,
-                multiselect: false,
-                setSelectFolderEnabled: true,
-                callbackFunction: (data) => {
-                    if (data.action === 'picked') {
-                        const folder = data.docs[0];
-                        setFormData(prev => ({ ...prev, folderId: folder.id }));
-                        setIsDirty(true);
-                    }
-                    if (data.action === 'cancel' || data.action === 'picked') {
-                        setIsPicking(false);
-                    }
-                },
-            });
-        } catch (e) {
-            console.error("Picker Error", e);
-            setIsPicking(false);
-        }
-    };
 
     return (
         <div className="h-full w-full max-w-5xl mx-auto p-8 flex flex-col gap-8">
@@ -276,37 +248,28 @@ export function ProjectInfoView() {
                     <div className="space-y-4 p-6 border rounded-lg bg-card shadow-sm">
                         <h3 className="font-semibold text-lg flex items-center gap-2">
                             <FolderOpen className="h-5 w-5 text-blue-500" />
-                            クラウド連携 (Google Drive)
+                            クラウド連携 (Team Drive)
                         </h3>
 
                         <div className="p-4 bg-muted/30 rounded-md border text-sm text-muted-foreground space-y-2">
                             <p>
-                                プロジェクトファイルを保存・同期するGoogle Driveフォルダを指定します。
-                                指定したフォルダに <code>project.json</code> が自動的に保存され、チームメンバーと共有できます。
+                                環境変数で指定されたチームフォルダに自動保存されます。
                             </p>
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="folderId">連携フォルダID</Label>
+                            <Label htmlFor="folderId">連携フォルダID (固定)</Label>
                             <div className="flex gap-2">
                                 <Input
                                     id="folderId"
-                                    value={formData.folderId}
-                                    onChange={(e) => handleChange('folderId', e.target.value)}
-                                    placeholder="Google Drive Folder ID"
-                                    className="font-mono text-xs"
+                                    value={process.env.NEXT_PUBLIC_TEAM_FOLDER_ID || formData.folderId || "設定されていません"}
                                     readOnly={true}
+                                    className="font-mono text-xs bg-muted text-muted-foreground"
                                 />
-                                <Button variant="outline" onClick={handleOpenPicker} disabled={isPicking}>
-                                    <FolderOpen className="mr-2 h-4 w-4" />
-                                    {isPicking ? '読込中...' : '選択'}
-                                </Button>
                             </div>
-                            {formData.folderId && (
-                                <p className="text-xs text-green-600 flex items-center mt-1">
-                                    <RefreshCw className="h-3 w-3 mr-1" /> 連携中
-                                </p>
-                            )}
+                            <p className="text-xs text-green-600 flex items-center mt-1">
+                                <RefreshCw className="h-3 w-3 mr-1" /> チームフォルダ連携中
+                            </p>
                         </div>
                     </div>
 

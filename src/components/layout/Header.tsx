@@ -15,19 +15,16 @@ import { useSession, signOut, signIn } from "next-auth/react";
 import { driveService } from "@/services/driveService";
 import { toast } from "sonner";
 import { useProjectStore } from "@/store/projectStore";
-import useDrivePicker from "react-google-drive-picker";
-import React, { useEffect, useState } from "react"; // Added React and useState
-import { ConflictDisplay } from "@/components/project/ConflictDisplay"; // Corrected path
-import Link from "next/link";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"; // Re-added Avatar imports
 import { Badge } from '@/components/ui/badge'; // Re-added Badge import
 import { ThemeToggle } from "@/components/theme-toggle"; // Re-added ThemeToggle import
-
+import React, { useEffect, useState } from "react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ConflictDisplay } from "./conflict-display";
 
 export function Header() {
     const { projectName, clientName, ...projectData } = useProjectStore(); // Get all data
     const { data: session } = useSession();
-    const [openPicker, authResponse] = useDrivePicker();
+    // Removed Picker Hook
     const { setDriveFolderId, setDriveFolderName } = useProjectStore();
 
     useEffect(() => {
@@ -100,33 +97,8 @@ export function Header() {
         }
     };
 
-    const handleDrivePick = () => {
-        if (!session?.accessToken) {
-            signIn('google');
-            return;
-        }
+    // Removed picker logic
 
-        openPicker({
-            clientId: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "",
-            developerKey: process.env.NEXT_PUBLIC_GOOGLE_API_KEY || "",
-            viewId: "FOLDERS",
-            token: session.accessToken as string,
-            showUploadView: true,
-            showUploadFolders: true,
-            supportDrives: true,
-            multiselect: false,
-            callbackFunction: (data) => {
-                if (data.action === 'picked') {
-                    const folder = data.docs[0];
-                    setDriveFolderId(folder.id);
-                    setDriveFolderName(folder.name);
-                    toast.success(`Google Drive folder selected: ${folder.name}`);
-                } else if (data.action === 'cancel') {
-                    console.log('User clicked cancel/close button');
-                }
-            },
-        });
-    };
 
     return (
         <header className="h-14 border-b bg-background flex items-center justify-between px-4 shrink-0">

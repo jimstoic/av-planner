@@ -17,6 +17,13 @@ const handler = NextAuth({
         }),
     ],
     callbacks: {
+        async signIn({ account, profile }) {
+            if (account?.provider === "google") {
+                // Restrict to @fleeeet.com domain
+                return profile?.email?.endsWith("@fleeeet.com") || false;
+            }
+            return true;
+        },
         async jwt({ token, account }) {
             if (account) {
                 token.accessToken = account.access_token;
