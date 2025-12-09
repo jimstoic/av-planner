@@ -87,8 +87,8 @@ export function ProjectInfoView() {
 
         <div className="flex flex-col h-full w-full bg-slate-50/50 dark:bg-background">
             {/* Fixed Header (Static Block) */}
-            <div className="border-b bg-background shrink-0 w-full shadow-sm py-2">
-                <div className="max-w-5xl mx-auto px-8 py-4 flex justify-between items-center">
+            <div className="border-b bg-background shrink-0 w-full shadow-sm py-4">
+                <div className="max-w-5xl mx-auto px-8 flex justify-between items-center">
                     <div>
                         <h2 className="text-2xl font-bold tracking-tight">プロジェクト情報</h2>
                         <p className="text-muted-foreground text-sm mt-1">

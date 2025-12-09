@@ -118,7 +118,7 @@ export function Header() {
 
                 <div className="flex-1 ml-6 border-l pl-6 hidden md:block">
                     <div>
-                        <div className="font-semibold text-sm leading-none">{projectName || 'Untitled Project'}</div>
+                        <div className="font-semibold text-sm leading-snug">{projectName || 'Untitled Project'}</div>
                         <div className="text-xs text-muted-foreground flex gap-2 mt-1">
                             {clientName && <span>{clientName}</span>}
                             {clientName && (projectData.venue || projectData.startDate) && <span>|</span>}
