@@ -19,7 +19,7 @@ import { Badge } from '@/components/ui/badge'; // Re-added Badge import
 import { ThemeToggle } from "@/components/theme-toggle"; // Re-added ThemeToggle import
 import React, { useEffect, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ConflictDisplay } from "./conflict-display";
+import { ConflictDisplay } from "@/components/project/ConflictDisplay";
 
 export function Header() {
     const { projectName, clientName, ...projectData } = useProjectStore(); // Get all data
