@@ -70,7 +70,7 @@ export default function Home() {
 
       <div className="flex-1 overflow-hidden relative bg-background">
         {activeTab === "info" && (
-          <div className="h-full w-full overflow-y-auto">
+          <div className="h-full w-full overflow-hidden">
             <ProjectInfoView />
           </div>
         )}
