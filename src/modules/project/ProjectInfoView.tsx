@@ -84,7 +84,8 @@ export function ProjectInfoView() {
 
 
     return (
-        <div className="h-full w-full max-w-5xl mx-auto p-8 flex flex-col gap-8">
+        <div className="h-full w-full max-w-5xl mx-auto p-8 pt-12 flex flex-col gap-8">
+
             <div className="flex justify-between items-center border-b pb-4">
                 <div>
                     <h2 className="text-2xl font-bold tracking-tight">プロジェクト情報</h2>
