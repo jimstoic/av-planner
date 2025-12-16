@@ -20,6 +20,7 @@ import { ThemeToggle } from "@/components/theme-toggle"; // Re-added ThemeToggle
 import React, { useEffect, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ConflictDisplay } from "@/components/project/ConflictDisplay";
+import Link from "next/link";
 
 export function Header() {
     const { projectName, clientName, ...projectData } = useProjectStore(); // Get all data
@@ -107,26 +108,34 @@ export function Header() {
                     <div className="h-8 w-8 bg-blue-600 rounded-lg flex items-center justify-center">
                         <Zap className="h-5 w-5 text-white" />
                     </div>
-                    <span className="font-bold text-xl hidden md:block">AV Planner</span>
+                    <Link href="/" className="font-bold text-xl hidden md:block hover:opacity-80 transition-opacity">
+                        AV Planner
+                    </Link>
                 </div>
 
                 <div className="flex gap-2">
                     <Button variant="ghost" size="sm" asChild>
-                        <a href="/dashboard">Dashboard</a>
+                        <Link href="/">Dashboard</Link>
                     </Button>
                 </div>
 
-                <div className="flex-1 ml-6 border-l pl-6 hidden md:block">
-                    <div>
-                        <div className="font-semibold text-sm leading-snug">{projectName || 'Untitled Project'}</div>
-                        <div className="text-xs text-muted-foreground flex gap-2 mt-1">
-                            {clientName && <span>{clientName}</span>}
-                            {clientName && (projectData.venue || projectData.startDate) && <span>|</span>}
-                            {projectData.venue && <span>@{projectData.venue}</span>}
-                            {projectData.startDate && <span>({new Date(projectData.startDate).toLocaleDateString()})</span>}
+                <div className="flex-1 ml-6 flex items-center gap-4 hidden md:flex">
+                    <div className="border-l h-8 mx-2" /> {/* Divider */}
+
+                    <div className="flex flex-col justify-center">
+                        <div className="font-bold text-sm leading-tight tracking-tight">
+                            {projectName || 'Untitled Project'}
+                        </div>
+                        <div className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5">
+                            {clientName && <span className="font-medium">{clientName}</span>}
+                            {clientName && (projectData.venue || projectData.startDate) && <span className="text-muted-foreground/30">•</span>}
+                            {projectData.venue && <span>{projectData.venue}</span>}
+                            {projectData.venue && projectData.startDate && <span className="text-muted-foreground/30">•</span>}
+                            {projectData.startDate && <span>{new Date(projectData.startDate).toLocaleDateString()}</span>}
                         </div>
                     </div>
-                    <div className="ml-2 pl-2 border-l h-8 flex items-center">
+
+                    <div className="ml-auto mr-4">
                         <ConflictDisplay />
                     </div>
                 </div>
