@@ -62,7 +62,9 @@ export function TemplateWizard() {
             driveFileId: '',
             staff: [],
             schedule: [],
-            additionalCosts: []
+            schedule: [],
+            additionalCosts: [],
+            editingEdgeId: null
         });
 
         toast.success("テンプレートからプロジェクトを作成しました！");
