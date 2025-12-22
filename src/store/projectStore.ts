@@ -235,11 +235,11 @@ export const useProjectStore = create<ProjectState & ProjectActions>((set, get) 
     },
     onConnect: (connection) => {
         const edge: Edge = {
-            ...connection,
             id: `e-${connection.source}-${connection.target}-${Date.now()}`,
-            type: 'default',
-            data: { cableType: 'HDMI', length: 1, type: 'Signal' },
+            type: 'cable',
             animated: true,
+            data: { length: '1m', type: 'Signal' },
+            ...connection,
         };
         set({
             edges: addEdge(edge, get().edges),
