@@ -24,6 +24,7 @@ export function StaffManager() {
                 name: editingStaff.name,
                 role: editingStaff.role || 'Staff',
                 dayRate: Number(editingStaff.dayRate) || 0,
+                daysAssigned: 0,
                 email: editingStaff.email || ''
             });
         }
