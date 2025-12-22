@@ -1,367 +1,331 @@
-import React, { useState } from 'react';
-import { useProjectStore } from "@/store/projectStore";
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Download, Printer } from "lucide-react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Separator } from '@/components/ui/separator';
+"use client";
+
+import React, { useMemo, useState } from 'react';
+import { useProjectStore } from '@/store/projectStore';
+import { useEquipmentStore } from '@/store/equipmentStore';
+import { differenceInDays } from 'date-fns';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
+import { Separator } from '@/components/ui/separator';
+import { Printer } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Equipment } from '@/types/equipment';
+import { Input } from '@/components/ui/input';
+import { StaffManager } from '@/modules/project/StaffManager';
+import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
+import { Users } from 'lucide-react';
 
 export function QuotationView() {
     const {
-        nodes,
-        edges,
-        additionalCosts,
-        setAdditionalCosts
+        startDate,
+        endDate,
+        selectedEquipmentIds,
+        nodes, // Get nodes for counting
+        staff,
+        projectName,
+        clientName,
+        venue,
+        additionalCosts
     } = useProjectStore();
-    const [rate, setRate] = useState(1.0);
 
-    // New Cost State
-    const [newCost, setNewCost] = useState({ name: '', category: 'Labor', unitPrice: 0, quantity: 1 });
+    const { equipment } = useEquipmentStore();
+    const [isInvoiceMode, setIsInvoiceMode] = useState(false);
 
-    // Calculate Equipment Costs from Nodes
-    const equipmentItems = React.useMemo(() => {
-        const map = new Map<string, { count: number; data: Equipment }>();
-        nodes.forEach((node) => {
-            if ((node.type === 'equipment' || node.type === 'equipmentNode') && node.data) {
-                const equipmentData = node.data as unknown as Equipment;
-                const originalId = node.data.equipmentId as string || equipmentData.id;
-                if (originalId) {
-                    if (map.has(originalId)) {
-                        map.get(originalId)!.count++;
-                    } else {
-                        map.set(originalId, { data: equipmentData, count: 1 });
-                    }
-                }
-            }
-        });
+    // Calculate duration
+    const duration = useMemo(() => {
+        const days = differenceInDays(endDate, startDate) + 1;
+        return Math.max(1, days);
+    }, [startDate, endDate]);
 
-        return Array.from(map.values()).map(item => ({
-            ...item,
-            unitPrice: item.data.dayRate || 0,
-            lineTotal: (item.data.dayRate || 0) * item.count * rate
+    // 1. Staff Costs
+    const staffItems = useMemo(() => {
+        return staff.map(s => ({
+            ...s,
+            quantity: 1, // Staff usually 1 person
+            days: s.daysAssigned || duration,
+            total: s.dayRate * (s.daysAssigned || duration)
         }));
-    }, [nodes, rate]);
+    }, [staff, duration]);
+    const staffSubtotal = staffItems.reduce((acc, item) => acc + item.total, 0);
 
-    // Pricing Factors
-    const CABLE_PRICE_PER_METER = 100; // JPY
+    // 2. Equipment Costs (From Diagram Count)
+    const equipmentItems = useMemo(() => {
+        return selectedEquipmentIds.map(id => {
+            const item = equipment.find(e => e.id === id);
+            if (!item) return null;
 
-    // Aggregate Cables
-    const cableItems = React.useMemo(() => {
-        const map = new Map<string, { count: number; lengthStr: string; type: string; totalLengthM: number }>();
-        edges.forEach((edge) => {
-            const type = (edge.data?.type as string) || 'Signal';
-            // Safely handle length, ensuring it is treated as a string
-            const rawLength = edge.data?.length ?? '1m';
-            const lengthStr = String(rawLength);
-            const lengthM = parseInt(lengthStr.replace('m', '')) || 1;
-            const key = `${type}-${lengthStr}`;
-            if (map.has(key)) {
-                const item = map.get(key)!;
-                item.count++;
-                item.totalLengthM += lengthM;
-            } else {
-                map.set(key, { count: 1, type, lengthStr, totalLengthM: lengthM });
-            }
-        });
+            // Count nodes using this equipment
+            const nodeCount = nodes.filter(n => n.data?.equipmentId === id).length;
+            // Quantity is at least 1 (if in list), or count from nodes
+            const quantity = Math.max(1, nodeCount);
 
-        return Array.from(map.values()).map(item => ({
-            ...item,
-            unitPrice: Math.round(item.totalLengthM * CABLE_PRICE_PER_METER / item.count),
-            calculatedUnitPrice: (parseInt(item.lengthStr) || 1) * CABLE_PRICE_PER_METER,
-            lineTotal: ((parseInt(item.lengthStr) || 1) * CABLE_PRICE_PER_METER) * item.count
-        }));
-    }, [edges]);
+            return {
+                ...item,
+                quantity: quantity,
+                days: duration,
+                total: (item.dayRate || 0) * quantity * duration
+            };
+        }).filter(Boolean) as (typeof equipment[0] & { quantity: number, days: number, total: number })[];
+    }, [selectedEquipmentIds, equipment, duration, nodes]);
+    const equipmentSubtotal = equipmentItems.reduce((acc, item) => acc + item.total, 0);
 
-    const additionalItems = (additionalCosts || []).map(item => ({
-        ...item,
-        lineTotal: item.unitPrice * item.quantity
+    // 3. Production Costs (Additional Costs Filtered)
+    // Assuming category 'production' vs 'other'
+    const productionItems = additionalCosts.filter(c => c.category === 'production' || !c.category).map(c => ({
+        ...c,
+        total: c.unitPrice * c.quantity
     }));
+    const productionSubtotal = productionItems.reduce((acc, item) => acc + item.total, 0);
 
-    const subTotalEquipment = equipmentItems.reduce((acc, item) => acc + item.lineTotal, 0);
-    const subTotalCables = cableItems.reduce((acc, item) => acc + item.lineTotal, 0);
-    const subTotalAdditional = additionalItems.reduce((acc, item) => acc + item.lineTotal, 0);
+    // 4. Other Costs
+    const otherItems = additionalCosts.filter(c => c.category === 'other').map(c => ({
+        ...c,
+        total: c.unitPrice * c.quantity
+    }));
+    const otherSubtotal = otherItems.reduce((acc, item) => acc + item.total, 0);
 
-    const subTotal = subTotalEquipment + subTotalCables + subTotalAdditional;
-    const taxRate = 0.1;
-    const taxAmount = subTotal * taxRate;
-    const grandTotal = subTotal + taxAmount;
 
-    // Handlers
-    const handleAddCost = () => {
-        if (!newCost.name) return;
-        const newItem = {
-            id: `cost-${Date.now()}`,
-            ...newCost
-        };
-        setAdditionalCosts([...(additionalCosts || []), newItem]);
-        setNewCost({ name: '', category: 'Labor', unitPrice: 0, quantity: 1 });
-    };
+    const totalEstimatedCost = staffSubtotal + equipmentSubtotal + productionSubtotal + otherSubtotal;
+    const tax = Math.floor(totalEstimatedCost * 0.1);
+    const grandTotal = totalEstimatedCost + tax;
 
-    const handleRemoveCost = (id: string) => {
-        setAdditionalCosts(additionalCosts.filter(c => c.id !== id));
-    };
-
-    // Export Logic
-    const handleExportCSV = () => {
-        const headers = ["Category", "Item", "Unit Price", "Qty", "Total"];
-        const eqRows = equipmentItems.map(item => [
-            "Equipment", item.data.name, item.unitPrice, item.count, item.lineTotal
-        ]);
-        const cabRows = cableItems.map(item => [
-            "Cable", `${item.type} Cable ${item.lengthStr}`, item.calculatedUnitPrice, item.count, item.lineTotal
-        ]);
-        const addRows = additionalItems.map(item => [
-            item.category, item.name, item.unitPrice, item.quantity, item.lineTotal
-        ]);
-
-        const csvContent = [
-            headers.join(","),
-            ...eqRows.map(row => row.join(",")),
-            ...cabRows.map(row => row.join(",")),
-            ...addRows.map(row => row.join(",")),
-            `,,,Subtotal,${subTotal}`,
-            `,,,Tax,${taxAmount}`,
-            `,,,Grand Total,${grandTotal}`
-        ].join("\n");
-
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement("a");
-        const url = URL.createObjectURL(blob);
-        link.setAttribute("href", url);
-        link.setAttribute("download", "quotation_av_planner.csv");
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
-
-    const handlePrint = () => {
-        window.print();
-    };
+    const themeColor = isInvoiceMode ? "text-emerald-600 border-emerald-500" : "text-blue-600 border-blue-500";
+    const highlightColor = isInvoiceMode ? "bg-emerald-600" : "bg-blue-600";
 
     return (
-        <>
-            <style jsx global>{`
-                @media print {
-                    body * { visibility: hidden; }
-                    .quotation-print-container, .quotation-print-container * { visibility: visible; }
-                    .quotation-print-container {
-                        position: fixed; left: 0; top: 0; width: 100%; height: 100%;
-                        margin: 0; padding: 40px; background: white; z-index: 9999;
-                        border: none; box-shadow: none;
-                    }
-                    .no-print { display: none !important; }
-                }
-            `}</style>
-            <Card className="m-4 shadow-md bg-card w-full min-h-[300px] border quotation-print-container">
-                <CardHeader className="bg-muted/10 pb-4">
-                    <div className="flex justify-between items-start">
+        <div className="flex flex-col h-full w-full bg-slate-50/50 dark:bg-background overflow-hidden">
+            {/* Header */}
+            <div className="border-b bg-background shadow-sm py-4 shrink-0">
+                <div className="max-w-5xl mx-auto px-8 flex justify-between items-center">
+                    <div>
+                        <h2 className="text-2xl font-bold tracking-tight">
+                            {isInvoiceMode ? '請求書発行' : '見積もり作成'}
+                        </h2>
+                        <p className="text-muted-foreground text-sm mt-1">
+                            {isInvoiceMode ? 'プロジェクト完了後の請求書を作成します' : '顧客提示用の概算見積書を作成します'}
+                        </p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <div className="flex items-center space-x-2 bg-muted p-2 rounded-lg">
+                            <Switch id="mode-toggle" checked={isInvoiceMode} onCheckedChange={setIsInvoiceMode} />
+                            <Label htmlFor="mode-toggle" className="cursor-pointer font-medium">
+                                {isInvoiceMode ? '請求モード (Invoice)' : '見積モード (Quote)'}
+                            </Label>
+                        </div>
+                        <Button variant="outline" onClick={() => window.print()}>
+                            <Printer className="mr-2 h-4 w-4" /> 印刷 / PDF
+                        </Button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-8 font-sans">
+                <div className="max-w-4xl mx-auto bg-white dark:bg-card shadow-lg rounded-none border overflow-hidden min-h-[1000px] print:shadow-none print:border-none">
+                    {/* Document Header */}
+                    <div className="p-12 border-b bg-white">
+                        <div className="flex justify-between items-start mb-12">
+                            <div className="space-y-4">
+                                <h1 className={`text-4xl font-bold tracking-wider ${themeColor.split(' ')[0]}`}>
+                                    {isInvoiceMode ? '御 請 求 書' : '御 見 積 書'}
+                                </h1>
+                                <div className="text-sm space-y-1 text-muted-foreground">
+                                    <p>No. {new Date().getTime().toString().slice(-6)}</p>
+                                    <p>発行日: {new Date().toLocaleDateString()}</p>
+                                </div>
+                            </div>
+                            <div className="text-right space-y-2">
+                                <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">{clientName || '顧客名未設定'} 御中</h2>
+                                <div className="text-sm text-muted-foreground p-4 bg-muted/20 rounded-lg text-left w-64">
+                                    <p className="font-semibold mb-1">件名: {projectName}</p>
+                                    <p>会場: {venue}</p>
+                                    <p>期間: {new Date(startDate).toLocaleDateString()} - {new Date(endDate).toLocaleDateString()}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end mb-8">
+                            <div className="w-1/2 border-b-2 border-slate-200 pb-2">
+                                <div className="flex justify-between items-end">
+                                    <span className="text-sm font-semibold text-muted-foreground">
+                                        {isInvoiceMode ? 'ご請求金額 (税込)' : '御見積金額 (税込)'}
+                                    </span>
+                                    <span className="text-3xl font-bold tracking-tight">¥{grandTotal.toLocaleString()}-</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="p-12 space-y-12">
+                        {/* 1. Staff */}
+                        {/* 1. Staff */}
                         <div>
-                            <Badge variant="outline" className="mb-2">お見積もり</Badge>
-                            <CardTitle className="text-xl">御見積書</CardTitle>
-                            <p className="text-sm text-muted-foreground mt-1">Generated by AV Planner</p>
+                            <div className="flex justify-between items-end mb-4 border-b-2 pb-1 border-blue-500">
+                                <h3 className={`font-bold text-lg ${themeColor} border-none mb-0 pb-0`}>
+                                    1. 人件費 (Personnel Expenses)
+                                </h3>
+                                <Dialog>
+                                    <DialogTrigger asChild>
+                                        <Button variant="ghost" size="sm" className="h-6 text-xs text-muted-foreground hover:text-primary">
+                                            <Users className="w-3 h-3 mr-1" />
+                                            スタッフ管理
+                                        </Button>
+                                    </DialogTrigger>
+                                    <DialogContent className="max-w-3xl">
+                                        <StaffManager />
+                                    </DialogContent>
+                                </Dialog>
+                            </div>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow className="hover:bg-transparent">
+                                        <TableHead className="w-[40%] text-slate-600">内容</TableHead>
+                                        <TableHead className="text-right text-slate-600">単価</TableHead>
+                                        <TableHead className="text-center text-slate-600">人・日</TableHead>
+                                        <TableHead className="text-right text-slate-600">金額</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {staffItems.map((item) => (
+                                        <TableRow key={item.id} className="border-b-slate-100">
+                                            <TableCell className="font-medium">{item.name} <span className="text-xs text-muted-foreground ml-2">({item.role})</span></TableCell>
+                                            <TableCell className="text-right">¥{item.dayRate.toLocaleString()}</TableCell>
+                                            <TableCell className="text-center">{item.days}</TableCell>
+                                            <TableCell className="text-right">¥{item.total.toLocaleString()}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                    <TableRow className="bg-muted/5 font-semibold">
+                                        <TableCell colSpan={3} className="text-right">小計</TableCell>
+                                        <TableCell className="text-right">¥{staffSubtotal.toLocaleString()}</TableCell>
+                                    </TableRow>
+                                </TableBody>
+                            </Table>
                         </div>
-                        <div className="text-right flex flex-col items-end gap-2">
-                            <div className="flex items-center gap-2 justify-end no-print">
-                                <Label htmlFor="rate" className="text-sm">掛率:</Label>
-                                <Input
-                                    id="rate"
-                                    type="number"
-                                    min="0.1"
-                                    step="0.1"
-                                    value={rate}
-                                    onChange={(e) => setRate(Math.max(0.1, parseFloat(e.target.value) || 1))}
-                                    className="w-20 h-8 text-right bg-background"
-                                />
-                            </div>
-                            <div className="flex gap-2 no-print">
-                                <Button variant="outline" size="sm" onClick={handleExportCSV} title="CSV出力">
-                                    <Download className="w-4 h-4 mr-1" /> CSV
-                                </Button>
-                                <Button variant="outline" size="sm" onClick={handlePrint} title="PDF保存 / 印刷">
-                                    <Printer className="w-4 h-4 mr-1" /> PDF
-                                </Button>
-                            </div>
-                        </div>
-                    </div>
-                </CardHeader>
-                <CardContent className="p-0">
-                    <div className="w-full">
-                        <div className="w-full h-[calc(100vh-350px)] overflow-y-auto">
-                            <div className="grid grid-cols-[1fr_100px_60px_100px_40px] gap-4 p-4 border-b bg-muted/50 text-sm font-medium text-muted-foreground sticky top-0 backdrop-blur-sm z-10">
-                                <div>項目</div>
-                                <div className="text-right">単価</div>
-                                <div className="text-right">数量</div>
-                                <div className="text-right">金額</div>
-                                <div className="no-print"></div>
-                            </div>
 
-                            <div className="text-sm pb-20">
-                                {/* Equipment Section */}
-                                {equipmentItems.length > 0 && (
-                                    <div className="bg-muted/5 font-semibold text-xs text-muted-foreground uppercase tracking-wider py-2 px-4">
-                                        機材費
+                        {/* 2. Equipment */}
+                        <div>
+                            <h3 className={`font-bold text-lg mb-4 border-b-2 pb-1 ${themeColor}`}>
+                                2. 機材費 (Equipment Expenses)
+                            </h3>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow className="hover:bg-transparent">
+                                        <TableHead className="w-[40%] text-slate-600">内容</TableHead>
+                                        <TableHead className="text-right text-slate-600">単価</TableHead>
+                                        <TableHead className="text-center text-slate-600">数量 × 日数</TableHead>
+                                        <TableHead className="text-right text-slate-600">金額</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {equipmentItems.map((item) => (
+                                        <TableRow key={item.id} className="border-b-slate-100">
+                                            <TableCell className="font-medium">
+                                                {item.name}
+                                                <div className="text-[10px] text-muted-foreground">{item.manufacturer}</div>
+                                            </TableCell>
+                                            <TableCell className="text-right">¥{item.dayRate?.toLocaleString()}</TableCell>
+                                            <TableCell className="text-center">
+                                                <span className="mx-1">{item.quantity}</span>
+                                                <span className="text-muted-foreground mx-1">×</span>
+                                                <span className="mx-1">{item.days}</span>
+                                            </TableCell>
+                                            <TableCell className="text-right">¥{item.total.toLocaleString()}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                    <TableRow className="bg-muted/5 font-semibold">
+                                        <TableCell colSpan={3} className="text-right">小計</TableCell>
+                                        <TableCell className="text-right">¥{equipmentSubtotal.toLocaleString()}</TableCell>
+                                    </TableRow>
+                                </TableBody>
+                            </Table>
+                        </div>
+
+                        {(productionItems.length > 0 || otherItems.length > 0) && (
+                            <>
+                                {/* 3. Production */}
+                                {productionItems.length > 0 && (
+                                    <div>
+                                        <h3 className={`font-bold text-lg mb-4 border-b-2 pb-1 ${themeColor}`}>
+                                            3. 制作費 (Production Expenses)
+                                        </h3>
+                                        <Table>
+                                            <TableBody>
+                                                {productionItems.map((item) => (
+                                                    <TableRow key={item.id}>
+                                                        <TableCell className="w-[40%] font-medium">{item.name}</TableCell>
+                                                        <TableCell className="text-right">¥{item.unitPrice.toLocaleString()}</TableCell>
+                                                        <TableCell className="text-center">{item.quantity}</TableCell>
+                                                        <TableCell className="text-right">¥{item.total.toLocaleString()}</TableCell>
+                                                    </TableRow>
+                                                ))}
+                                                <TableRow className="bg-muted/5 font-semibold">
+                                                    <TableCell colSpan={3} className="text-right">小計</TableCell>
+                                                    <TableCell className="text-right">¥{productionSubtotal.toLocaleString()}</TableCell>
+                                                </TableRow>
+                                            </TableBody>
+                                        </Table>
                                     </div>
                                 )}
-                                {equipmentItems.map((item) => (
-                                    <div key={item.data.id} className="grid grid-cols-[1fr_100px_60px_100px_40px] gap-4 p-4 border-b last:border-0 hover:bg-muted/5 items-center">
-                                        <div>
-                                            <div className="font-medium">{item.data.name}</div>
-                                            <div className="text-xs text-muted-foreground">{item.data.category}</div>
-                                        </div>
-                                        <div className="text-right">¥{item.unitPrice.toLocaleString()}</div>
-                                        <div className="text-right">{item.count}</div>
-                                        <div className="text-right font-medium">¥{Math.round(item.lineTotal).toLocaleString()}</div>
-                                        <div></div>
-                                    </div>
-                                ))}
 
-                                {/* Cables Section */}
-                                {cableItems.length > 0 && (
-                                    <div className="bg-muted/5 font-semibold text-xs text-muted-foreground uppercase tracking-wider py-2 px-4 border-t">
-                                        ケーブル類
+                                {/* 4. Other */}
+                                {otherItems.length > 0 && (
+                                    <div>
+                                        <h3 className={`font-bold text-lg mb-4 border-b-2 pb-1 ${themeColor}`}>
+                                            4. その他 (Other Expenses)
+                                        </h3>
+                                        <Table>
+                                            <TableBody>
+                                                {otherItems.map((item) => (
+                                                    <TableRow key={item.id}>
+                                                        <TableCell className="w-[40%] font-medium">{item.name}</TableCell>
+                                                        <TableCell className="text-right">¥{item.unitPrice.toLocaleString()}</TableCell>
+                                                        <TableCell className="text-center">{item.quantity}</TableCell>
+                                                        <TableCell className="text-right">¥{item.total.toLocaleString()}</TableCell>
+                                                    </TableRow>
+                                                ))}
+                                                <TableRow className="bg-muted/5 font-semibold">
+                                                    <TableCell colSpan={3} className="text-right">小計</TableCell>
+                                                    <TableCell className="text-right">¥{otherSubtotal.toLocaleString()}</TableCell>
+                                                </TableRow>
+                                            </TableBody>
+                                        </Table>
                                     </div>
                                 )}
-                                {cableItems.map((item) => (
-                                    <div key={`cable-${item.type}-${item.lengthStr}`} className="grid grid-cols-[1fr_100px_60px_100px_40px] gap-4 p-4 border-b last:border-0 hover:bg-muted/5 items-center">
-                                        <div>
-                                            <div className="font-medium">{item.type} ケーブル</div>
-                                            <div className="text-xs text-muted-foreground">{item.lengthStr}</div>
-                                        </div>
-                                        <div className="text-right">¥{item.calculatedUnitPrice.toLocaleString()}</div>
-                                        <div className="text-right">{item.count}</div>
-                                        <div className="text-right font-medium">¥{item.lineTotal.toLocaleString()}</div>
-                                        <div></div>
-                                    </div>
-                                ))}
+                            </>
+                        )}
 
-                                {/* Additional Costs Section */}
-                                <div className="bg-muted/5 font-semibold text-xs text-muted-foreground uppercase tracking-wider py-2 px-4 border-t flex justify-between items-center group">
-                                    <span>諸経費 (人件費・運搬費など)</span>
+                        {/* Grand Total Area */}
+                        <div className="flex justify-end pt-8">
+                            <div className="w-[300px] bg-slate-50 dark:bg-muted/10 p-6 rounded-lg space-y-3">
+                                <div className="flex justify-between text-sm">
+                                    <span className="font-medium text-muted-foreground">小計</span>
+                                    <span>¥{totalEstimatedCost.toLocaleString()}</span>
                                 </div>
-
-                                {additionalItems.map((item, index) => (
-                                    <div key={item.id} className="grid grid-cols-[1fr_100px_60px_100px_40px] gap-4 p-4 border-b last:border-0 hover:bg-muted/5 items-center group">
-                                        <div className="flex gap-2">
-                                            <Input
-                                                value={item.name}
-                                                onChange={(e) => {
-                                                    const newCosts = [...additionalCosts];
-                                                    newCosts[index].name = e.target.value;
-                                                    setAdditionalCosts(newCosts);
-                                                }}
-                                                className="h-8 text-sm border-transparent hover:border-input focus:border-input"
-                                                placeholder="項目名"
-                                            />
-                                            <select
-                                                className="h-8 text-sm border-transparent hover:border-input focus:border-input rounded bg-transparent px-2 w-24"
-                                                value={item.category}
-                                                onChange={(e) => {
-                                                    const newCosts = [...additionalCosts];
-                                                    newCosts[index].category = e.target.value;
-                                                    setAdditionalCosts(newCosts);
-                                                }}
-                                            >
-                                                <option value="Labor">人件費</option>
-                                                <option value="Transport">運搬費</option>
-                                                <option value="Misc">諸経費</option>
-                                            </select>
-                                        </div>
-                                        <Input
-                                            type="number"
-                                            value={item.unitPrice}
-                                            onChange={(e) => {
-                                                const newCosts = [...additionalCosts];
-                                                newCosts[index].unitPrice = Number(e.target.value);
-                                                setAdditionalCosts(newCosts);
-                                            }}
-                                            className="h-8 text-sm text-right border-transparent hover:border-input focus:border-input"
-                                        />
-                                        <Input
-                                            type="number"
-                                            value={item.quantity}
-                                            onChange={(e) => {
-                                                const newCosts = [...additionalCosts];
-                                                newCosts[index].quantity = Number(e.target.value);
-                                                setAdditionalCosts(newCosts);
-                                            }}
-                                            className="h-8 text-sm text-right border-transparent hover:border-input focus:border-input"
-                                        />
-                                        <div className="text-right font-medium">¥{item.lineTotal.toLocaleString()}</div>
-                                        <div className="text-center no-print">
-                                            <Button variant="ghost" size="sm" onClick={() => handleRemoveCost(item.id)} className="h-6 w-6 p-0 text-muted-foreground hover:text-red-500">
-                                                <span className="sr-only">Delete</span>×
-                                            </Button>
-                                        </div>
-                                    </div>
-                                ))}
-
-                                {/* Auto-Add Row (Always empty at bottom) */}
-                                <div className="grid grid-cols-[1fr_100px_60px_100px_40px] gap-4 p-4 border-b bg-slate-50 dark:bg-slate-900/20 items-center no-print opacity-70 hover:opacity-100 transition-opacity">
-                                    <div className="flex gap-2">
-                                        <Input
-                                            placeholder="入力して追加..."
-                                            className="h-8 text-sm"
-                                            value={newCost.name}
-                                            onChange={(e) => {
-                                                // Auto-create on type
-                                                const name = e.target.value;
-                                                if (name) {
-                                                    const newItem = {
-                                                        id: `cost-${Date.now()}`,
-                                                        name: name,
-                                                        category: newCost.category,
-                                                        unitPrice: newCost.unitPrice || 0,
-                                                        quantity: newCost.quantity || 1
-                                                    };
-                                                    setAdditionalCosts([...(additionalCosts || []), newItem]);
-                                                    setNewCost({ name: '', category: 'Labor', unitPrice: 0, quantity: 1 });
-                                                }
-                                            }}
-                                        />
-                                        <select
-                                            className="h-8 text-sm border rounded bg-background px-2 disabled:opacity-50"
-                                            value={newCost.category}
-                                            onChange={(e) => setNewCost({ ...newCost, category: e.target.value })}
-                                            disabled={true} // Disable for the 'adder' row, logic moves to main row once created
-                                        >
-                                            <option value="Labor">人件費</option>
-                                            <option value="Transport">運搬費</option>
-                                            <option value="Misc">諸経費</option>
-                                        </select>
-                                    </div>
-                                    <Input disabled placeholder="-" className="h-8 text-sm text-right border-transparent" />
-                                    <Input disabled placeholder="-" className="h-8 text-sm text-right border-transparent" />
-                                    <div className="text-right text-muted-foreground text-xs"></div>
-                                    <div></div>
+                                <div className="flex justify-between text-sm">
+                                    <span className="font-medium text-muted-foreground">消費税 (10%)</span>
+                                    <span>¥{tax.toLocaleString()}</span>
+                                </div>
+                                <Separator className="my-2 bg-slate-300" />
+                                <div className={`flex justify-between font-bold text-xl ${isInvoiceMode ? "text-emerald-700" : "text-blue-700"}`}>
+                                    <span>合計</span>
+                                    <span>¥{grandTotal.toLocaleString()}</span>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </CardContent>
 
-                <Separator />
-
-                <CardFooter className="flex flex-col gap-2 p-6 bg-muted/5">
-                    <div className="flex justify-between w-full text-sm">
-                        <span className="text-muted-foreground">小計</span>
-                        <span>¥{Math.round(subTotal).toLocaleString()}</span>
+                        {/* Remarks */}
+                        <div className="pt-8 text-sm text-muted-foreground">
+                            <h4 className="font-bold text-slate-700 mb-2">備考</h4>
+                            <ul className="list-disc list-inside space-y-1">
+                                <li>本見積もりの有効期限は発行日より1ヶ月とさせていただきます。</li>
+                                <li>振込手数料は貴社負担にてお願いいたします。</li>
+                            </ul>
+                        </div>
                     </div>
-                    <div className="flex justify-between w-full text-sm">
-                        <span className="text-muted-foreground">消費税 (10%)</span>
-                        <span>¥{Math.round(taxAmount).toLocaleString()}</span>
-                    </div>
-                    <Separator className="my-2" />
-                    <div className="flex justify-between w-full text-lg font-bold">
-                        <span>合計金額</span>
-                        <span>¥{Math.round(grandTotal).toLocaleString()}</span>
-                    </div>
-                </CardFooter>
-            </Card>
-        </>
+                </div>
+            </div>
+        </div>
     );
 }

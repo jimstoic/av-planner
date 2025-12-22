@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useProjectStore } from '@/store/projectStore';
+import { useProjectRegistryStore } from '@/store/projectRegistryStore';
 import { Header } from '@/components/layout/Header';
 import { Sidebar } from '@/components/layout/Sidebar';
 import DiagramEditor from '@/modules/diagram/DiagramEditor';
@@ -8,14 +10,37 @@ import { ConflictDisplay } from '@/components/project/ConflictDisplay';
 import { LibraryView } from '@/modules/library/LibraryView';
 import { ProjectInfoView } from '@/modules/project/ProjectInfoView';
 import { QuotationView } from '@/modules/reports/QuotationView';
+import { ScheduleView } from '@/modules/schedule/ScheduleView';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Hammer, Library, CalendarDays, Info, Receipt, CheckCircle2 } from "lucide-react";
 
+import { useSearchParams } from 'next/navigation'; // Added import
+
 export default function Home() {
+  const searchParams = useSearchParams(); // Get search params
+  const initialTab = searchParams.get('tab') || "info"; // Default to info if no tab param
+
   // Determine default tab based on workflow (start with Info or Diagram?)
   // User probably wants to start with Diagram or Info. Let's default to Diagram as it's the core, or Info as it's step 1.
   // Let's default to 'info' as it is the first step in the "waterfall".
-  const [activeTab, setActiveTab] = useState("info");
+  const [activeTab, setActiveTab] = useState(initialTab);
+
+  // Sync to Registry
+  const project = useProjectStore();
+  const { registerProject } = useProjectRegistryStore();
+
+  useEffect(() => {
+    // Debounce or just run on every change (basic)
+    registerProject({
+      id: project.id,
+      name: project.projectName || 'Untitled Project',
+      startDate: project.startDate,
+      endDate: project.endDate,
+      status: 'planning', // Default
+      equipmentUsage: (project.selectedEquipmentIds || []).map(id => ({ equipmentId: id, quantity: 1 }))
+    });
+  }, [project.id, project.projectName, project.startDate, project.endDate, project.selectedEquipmentIds, registerProject]);
+
 
   return (
     <div className="h-screen w-full flex flex-col bg-background">
@@ -98,19 +123,8 @@ export default function Home() {
         )}
 
         {activeTab === "schedule" && (
-          <div className="h-full w-full flex items-center justify-center bg-muted/10 animate-in fade-in duration-300">
-            <div className="text-center p-8 bg-card rounded-xl shadow-sm border max-w-lg">
-              <CheckCircle2 className="w-16 h-16 text-primary mx-auto mb-6 opacity-20" />
-              <h2 className="text-2xl font-semibold mb-4">プロジェクトスケジュール</h2>
-              <p className="text-muted-foreground mb-8 leading-relaxed">
-                現在、ガントチャート機能とスタッフアサイン機能は開発中です。<br />
-                <span className="text-xs opacity-70">Coming soon in Project Phase 3</span>
-              </p>
-              <div className="p-4 bg-muted/50 rounded-lg text-left text-sm space-y-2">
-                <p className="font-semibold text-muted-foreground">現在のステータス確認:</p>
-                <ConflictDisplay />
-              </div>
-            </div>
+          <div className="h-full w-full overflow-hidden animate-in fade-in duration-300">
+            <ScheduleView />
           </div>
         )}
       </div>

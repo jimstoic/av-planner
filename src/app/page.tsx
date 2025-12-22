@@ -5,37 +5,37 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Plus, FileJson, LayoutDashboard, LogIn } from "lucide-react";
+import { Loader2, Plus, FileJson, LayoutDashboard, LogIn, Calendar } from "lucide-react";
 import { driveService } from "@/services/driveService";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { useProjectStore } from "@/store/projectStore";
+import { TemplateWizard } from "@/modules/wizard/TemplateWizard";
 
 export default function LandingPage() {
     const { data: session, status } = useSession();
     const router = useRouter();
     const { loadProject, resetProject } = useProjectStore();
 
+    // View State: 'dashboard' | 'open' | 'template'
+    const [view, setView] = useState<'dashboard' | 'open' | 'template'>('dashboard');
+
     // State for Drive Files
     const [driveFiles, setDriveFiles] = useState<any[]>([]);
     const [isLoadingFiles, setIsLoadingFiles] = useState(false);
 
-    // Fetch Drive Files on Auth
+    // Fetch Drive Files only when 'open' view is active
     useEffect(() => {
-        if (status === 'authenticated' && session?.accessToken) {
+        if (status === 'authenticated' && session?.accessToken && view === 'open') {
             fetchDriveFiles();
         }
-    }, [status, session]);
+    }, [status, session, view]);
 
     const fetchDriveFiles = async () => {
         setIsLoadingFiles(true);
         try {
-            // Query for JSON files. 
-            // Broad query: mimeType = 'application/json' and trashed = false
-            // Optional: add name contains 'av-planner' provided we save with a specific naming convention
             const query = "mimeType = 'application/json' and trashed = false";
             const data = await driveService.searchFiles(session!.accessToken!, query);
-
             if (data.files) {
                 setDriveFiles(data.files);
             }
@@ -49,17 +49,12 @@ export default function LandingPage() {
 
     const handleNewProject = () => {
         resetProject();
-        // Go to Editor
         router.push('/project');
     };
 
     const handleLoadFile = async (fileId: string, fileName: string) => {
         const toastId = toast.loading(`${fileName} を読み込み中...`);
         try {
-            // We need a method to GET file content. 
-            // Assuming driveService has or needs a getFileContent method.
-            // For now, we reuse the googleapis endpoint logic or add it to service.
-
             const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
                 headers: { Authorization: `Bearer ${session?.accessToken}` }
             });
@@ -75,20 +70,15 @@ export default function LandingPage() {
             }
 
             // Load into Store
-            // Explicitly set driveFileId so overwrites work
             loadProject({
                 ...data,
                 driveFolderId: '',
                 driveFolderName: '',
-                driveFileId: fileId, // Set the ID of the file we just opened
+                driveFileId: fileId,
                 id: data.id || 'imported-project'
             });
-            // Note: We might want to track the fileId in the store to overwrite it later?
-            // Let's assume 'id' in data is the internal ID, but we also want to know the Drive File ID for "Save" (Overwrite).
-            // For MVP, "Save" creates new or requires logic updates. 
-            // Ideally, store should have `driveFileId`.
 
-            useProjectStore.setState({ driveFileId: fileId }); // Redundant but safe ensures it sticks
+            useProjectStore.setState({ driveFileId: fileId });
 
             toast.success("読み込み完了", { id: toastId });
             router.push('/project');
@@ -165,62 +155,124 @@ export default function LandingPage() {
             </header>
 
             <main className="p-6 md:p-10 max-w-7xl mx-auto space-y-8">
-                {/* Actions */}
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div>
-                        <h2 className="text-3xl font-bold tracking-tight">Projects</h2>
-                        <p className="text-muted-foreground mt-1">
-                            Google Drive上のプロジェクトファイル (JSON) を表示しています
-                        </p>
-                    </div>
-                    <Button onClick={handleNewProject} size="lg" className="shadow-lg hover:shadow-xl transition-all">
-                        <Plus className="mr-2 h-5 w-5" /> 新規プロジェクト作成
-                    </Button>
-                </div>
+                {view === 'dashboard' && (
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <h2 className="text-3xl font-bold tracking-tight mb-8 text-center sm:text-left">
+                            ようこそ、{session?.user?.name} さん
+                        </h2>
 
-                {/* Project List */}
-                {isLoadingFiles ? (
-                    <div className="flex justify-center py-20">
-                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                    </div>
-                ) : driveFiles.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                        {driveFiles.map((file) => (
-                            <Card
-                                key={file.id}
-                                className="group cursor-pointer hover:shadow-md transition-all border-muted/60 hover:border-primary/50"
-                                onClick={() => handleLoadFile(file.id, file.name)}
-                            >
-                                <CardHeader className="pb-3">
-                                    <div className="flex justify-between items-start gap-2">
-                                        <CardTitle className="text-base font-semibold truncate leading-tight">
-                                            {file.name.replace('.json', '')}
-                                        </CardTitle>
-                                        <FileJson className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                            {/* Option 1: New Project */}
+                            <Card className="hover:shadow-lg transition-all cursor-pointer border-2 hover:border-primary/50 group" onClick={handleNewProject}>
+                                <CardHeader className="text-center pb-2">
+                                    <div className="mx-auto bg-primary/10 p-4 rounded-full w-20 h-20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                                        <Plus className="w-10 h-10 text-primary" />
                                     </div>
-                                    <CardDescription className="text-xs truncate">
-                                        ID: {file.id}
-                                    </CardDescription>
+                                    <CardTitle>新規作成</CardTitle>
+                                    <CardDescription>まっさらな状態からプロジェクトを開始します</CardDescription>
                                 </CardHeader>
-                                <CardFooter className="pt-0 text-xs text-muted-foreground flex justify-between items-center">
-                                    <Badge variant="secondary" className="font-normal bg-muted/50">Drive File</Badge>
-                                    <span className="opacity-0 group-hover:opacity-100 transition-opacity text-primary font-medium">開く →</span>
-                                </CardFooter>
                             </Card>
-                        ))}
-                    </div>
-                ) : (
-                    <div className="text-center py-20 border-2 border-dashed rounded-xl bg-muted/5">
-                        <div className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-muted/20 mb-4">
-                            <FileJson className="h-6 w-6 text-muted-foreground" />
+
+                            {/* Option 2: Resume / Edit */}
+                            <Card className="hover:shadow-lg transition-all cursor-pointer border-2 hover:border-blue-500/50 group" onClick={() => setView('open')}>
+                                <CardHeader className="text-center pb-2">
+                                    <div className="mx-auto bg-blue-100 dark:bg-blue-900/20 p-4 rounded-full w-20 h-20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                                        <FileJson className="w-10 h-10 text-blue-600" />
+                                    </div>
+                                    <CardTitle>プロジェクトを開く</CardTitle>
+                                    <CardDescription>保存されたプロジェクトを再開・編集します</CardDescription>
+                                </CardHeader>
+                            </Card>
+
+                            {/* Option 3: Template */}
+                            <Card className="hover:shadow-lg transition-all cursor-pointer border-2 hover:border-emerald-500/50 group" onClick={() => setView('template')}>
+                                <CardHeader className="text-center pb-2">
+                                    <div className="mx-auto bg-emerald-100 dark:bg-emerald-900/20 p-4 rounded-full w-20 h-20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                                        <LayoutDashboard className="w-10 h-10 text-emerald-600" />
+                                    </div>
+                                    <CardTitle>テンプレートから作成</CardTitle>
+                                    <CardDescription>Zoom配信や収録など、目的から素早く作成します</CardDescription>
+                                </CardHeader>
+                            </Card>
+
+                            {/* Option 4: Schedule Shortcut */}
+                            <Card className="hover:shadow-lg transition-all cursor-pointer border-2 hover:border-purple-500/50 group" onClick={() => router.push('/project?tab=schedule')}>
+                                <CardHeader className="text-center pb-2">
+                                    <div className="mx-auto bg-purple-100 dark:bg-purple-900/20 p-4 rounded-full w-20 h-20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                                        <Calendar className="w-10 h-10 text-purple-600" />
+                                    </div>
+                                    <CardTitle>スケジュール</CardTitle>
+                                    <CardDescription>進行中のプロジェクトのスケジュールを確認します</CardDescription>
+                                </CardHeader>
+                            </Card>
                         </div>
-                        <h3 className="text-lg font-semibold">プロジェクトが見つかりません</h3>
-                        <p className="text-muted-foreground mt-1 mb-6 max-w-sm mx-auto">
-                            Google DriveのルートフォルダにJSON形式のプロジェクトファイルが見つかりませんでした。
-                        </p>
-                        <Button variant="outline" onClick={fetchDriveFiles}>
-                            再読み込み
-                        </Button>
+                    </div>
+                )}
+
+                {view === 'open' && (
+                    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                        <div className="flex items-center gap-4">
+                            <Button variant="ghost" onClick={() => setView('dashboard')}>
+                                ← 戻る
+                            </Button>
+                            <h2 className="text-2xl font-bold">プロジェクトを開く</h2>
+                        </div>
+
+                        {isLoadingFiles ? (
+                            <div className="flex justify-center py-20">
+                                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                            </div>
+                        ) : driveFiles.length > 0 ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                                {driveFiles.map((file) => (
+                                    <Card
+                                        key={file.id}
+                                        className="group cursor-pointer hover:shadow-md transition-all border-muted/60 hover:border-primary/50"
+                                        onClick={() => handleLoadFile(file.id, file.name)}
+                                    >
+                                        <CardHeader className="pb-3">
+                                            <div className="flex justify-between items-start gap-2">
+                                                <CardTitle className="text-base font-semibold truncate leading-tight">
+                                                    {file.name.replace('.json', '')}
+                                                </CardTitle>
+                                                <FileJson className="h-4 w-4 text-muted-foreground shrink-0" />
+                                            </div>
+                                            <CardDescription className="text-xs truncate">
+                                                ID: {file.id}
+                                            </CardDescription>
+                                        </CardHeader>
+                                        <CardFooter className="pt-0 text-xs text-muted-foreground flex justify-between items-center">
+                                            <Badge variant="secondary" className="font-normal bg-muted/50">Drive File</Badge>
+                                            <span className="opacity-0 group-hover:opacity-100 transition-opacity text-primary font-medium">開く →</span>
+                                        </CardFooter>
+                                    </Card>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-20 border-2 border-dashed rounded-xl bg-muted/5">
+                                <div className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-muted/20 mb-4">
+                                    <FileJson className="h-6 w-6 text-muted-foreground" />
+                                </div>
+                                <h3 className="text-lg font-semibold">プロジェクトが見つかりません</h3>
+                                <p className="text-muted-foreground mt-1 mb-6 max-w-sm mx-auto">
+                                    Google DriveのルートフォルダにJSON形式のプロジェクトファイルが見つかりませんでした。
+                                </p>
+                                <Button variant="outline" onClick={fetchDriveFiles}>
+                                    再読み込み
+                                </Button>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {view === 'template' && (
+                    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                        <div className="flex items-center gap-4">
+                            <Button variant="ghost" onClick={() => setView('dashboard')}>
+                                ← 戻る
+                            </Button>
+                        </div>
+                        <TemplateWizard />
                     </div>
                 )}
             </main>

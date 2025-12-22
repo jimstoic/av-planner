@@ -21,6 +21,49 @@ function EquipmentNode({ data }: NodeProps<Node<EquipmentNodeData>>) {
     const inputs = connectors.filter((c: Connector) => c.direction === 'input' || c.direction === 'bidirectional');
     const outputs = connectors.filter((c: Connector) => c.direction === 'output' || c.direction === 'bidirectional');
 
+    // Compact Mode Condition: Total ports <= 2 (e.g. Mic with 1 out, or Converter with 1 in / 1 out)
+    const isCompact = (inputs.length + outputs.length) <= 2;
+
+    if (isCompact) {
+        return (
+            <Card className="min-w-[100px] max-w-[120px] border shadow-sm bg-card">
+                <div className="p-1.5 flex items-center justify-between gap-2">
+                    {/* Inputs */}
+                    <div className="flex flex-col gap-1 -ml-2.5">
+                        {inputs.map((conn: Connector) => (
+                            <Handle
+                                key={conn.id}
+                                type="target"
+                                position={Position.Left}
+                                id={conn.id}
+                                className="!w-2 !h-2 !bg-blue-500 border border-background"
+                                title={conn.name}
+                            />
+                        ))}
+                    </div>
+
+                    <div className="flex-1 text-center truncate">
+                        <span className="text-[10px] font-semibold block leading-tight truncate" title={name}>{name}</span>
+                    </div>
+
+                    {/* Outputs */}
+                    <div className="flex flex-col gap-1 -mr-2.5">
+                        {outputs.map((conn: Connector) => (
+                            <Handle
+                                key={conn.id}
+                                type="source"
+                                position={Position.Right}
+                                id={conn.id}
+                                className="!w-2 !h-2 !bg-green-500 border border-background"
+                                title={conn.name}
+                            />
+                        ))}
+                    </div>
+                </div>
+            </Card>
+        );
+    }
+
     return (
         <Card className="min-w-[150px] max-w-[200px] border shadow-sm bg-card">
             <CardHeader className="p-2 pb-1 bg-muted/30">

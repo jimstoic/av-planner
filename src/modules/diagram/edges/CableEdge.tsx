@@ -28,11 +28,12 @@ export default function CableEdge({
     });
 
     const length = (data?.length as string) || '1m';
+    const type = (data?.type as string) || '';
 
     const onEdgeClick = (evt: React.MouseEvent) => {
         evt.stopPropagation();
         // Cycle lengths
-        const lengths = ['1m', '3m', '5m', '10m', '20m'];
+        const lengths = ['1m', '2m', '3m', '5m', '10m', '20m', '30m', '50m', '100m'];
         const currentIndex = lengths.indexOf(length);
         const nextLength = lengths[(currentIndex + 1) % lengths.length];
 
@@ -53,11 +54,11 @@ export default function CableEdge({
                 >
                     <Badge
                         variant="secondary"
-                        className="bg-background/90 hover:bg-background text-xs px-2 py-0.5 h-6 cursor-pointer border border-border shadow-sm rounded-full select-none"
+                        className="bg-background/90 hover:bg-background text-[10px] px-1.5 py-0 h-5 cursor-pointer border border-border shadow-sm rounded-full select-none whitespace-nowrap"
                         onClick={onEdgeClick}
                         title="Click to change cable length"
                     >
-                        {length}
+                        {length} {type}
                     </Badge>
                 </div>
             </EdgeLabelRenderer>

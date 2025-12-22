@@ -33,21 +33,27 @@ export const driveService = {
      * Create or Update a file (Simple upload for JSON)
      */
     async saveFile(accessToken: string, name: string, content: object, parentId?: string, fileId?: string) {
-        const metadata = {
+        // Enforce Team Folder if set
+        const targetParentId = parentId || process.env.NEXT_PUBLIC_TEAM_FOLDER_ID;
+
+        // Metadata
+        const metadata: any = {
             name,
             mimeType: 'application/json',
-            parents: parentId ? [parentId] : undefined,
         };
+        if (targetParentId && !fileId) {
+            metadata.parents = [targetParentId];
+        }
 
         const form = new FormData();
         form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
         form.append('file', new Blob([JSON.stringify(content, null, 2)], { type: 'application/json' }));
 
-        let url = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true';
+        let url = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&includeItemsFromAllDrives=true';
         let method = 'POST';
 
         if (fileId) {
-            url = `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart&supportsAllDrives=true`;
+            url = `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart&supportsAllDrives=true&includeItemsFromAllDrives=true`;
             method = 'PATCH';
         }
 
@@ -60,7 +66,8 @@ export const driveService = {
         });
 
         if (!res.ok) {
-            throw new Error(`Drive Upload Error: ${res.statusText}`);
+            const err = await res.text();
+            throw new Error(`Drive Upload Error: ${res.statusText} - ${err}`);
         }
 
         return res.json();

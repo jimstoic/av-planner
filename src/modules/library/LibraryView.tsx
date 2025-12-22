@@ -6,14 +6,16 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useEquipmentStore } from "@/store/equipmentStore";
 import { useProjectStore } from "@/store/projectStore"; // Added
+import { useProjectRegistryStore } from "@/store/projectRegistryStore"; // Added
 import { Checkbox } from "@/components/ui/checkbox"; // Added
-import { Plus, Trash2, RotateCcw, Save, ArrowLeft } from "lucide-react";
+import { Plus, Trash2, RotateCcw, Save, ArrowLeft, AlertTriangle } from "lucide-react";
 import { Equipment, EquipmentCategory, EquipmentSubCategory, Connector } from "@/types/equipment";
 import { PortCounter } from './PortCounter';
 import EquipmentNode from '../diagram/nodes/EquipmentNode';
 import { ReactFlowProvider } from '@xyflow/react';
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 const SUB_CATEGORIES: Record<string, { value: string; label: string }[]> = {
     video: [
@@ -53,7 +55,9 @@ const SUB_CATEGORIES: Record<string, { value: string; label: string }[]> = {
 
 export function LibraryView() {
     const { equipment, addEquipment, updateEquipment, deleteEquipment, resetToDefault } = useEquipmentStore();
-    const { selectedEquipmentIds, toggleEquipmentSelection } = useProjectStore(); // Use project store
+    const { selectedEquipmentIds, toggleEquipmentSelection, ...project } = useProjectStore(); // Get full project for dates
+    const { checkAvailability } = useProjectRegistryStore();
+
     const [mode, setMode] = useState<'list' | 'edit'>('list');
     const [currentItem, setCurrentItem] = useState<Partial<Equipment>>({});
 
@@ -153,29 +157,54 @@ export function LibraryView() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {equipment.map((item) => (
-                                    <tr key={item.id} className="border-b hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => handleEdit(item)}>
-                                        <td className="p-4 text-center" onClick={(e) => e.stopPropagation()}>
-                                            <Checkbox
-                                                checked={selectedEquipmentIds?.includes(item.id)}
-                                                onCheckedChange={() => toggleEquipmentSelection(item.id)}
-                                            />
-                                        </td>
-                                        <td className="p-4 font-medium">{item.name}</td>
-                                        <td className="p-4 text-muted-foreground">{item.manufacturer}</td>
-                                        <td className="p-4">
-                                            <Badge variant="outline" className="mr-2 capitalize">{item.majorCategory}</Badge>
-                                            <span className="text-xs text-muted-foreground capitalize">{item.subCategory}</span>
-                                        </td>
-                                        <td className="p-4 text-center">{item.stockQuantity || 0}</td>
-                                        <td className="p-4 text-right">¥{(item.dayRate || 0).toLocaleString()}</td>
-                                        <td className="p-4 text-center">
-                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:bg-red-100" onClick={(e) => { e.stopPropagation(); deleteEquipment(item.id); }}>
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        </td>
-                                    </tr>
-                                ))}
+                                {equipment.map((item) => {
+                                    // Conflict Check
+                                    const { available, remainingStock, conflictProjectNames } = checkAvailability(
+                                        item.id,
+                                        item.stockQuantity || 0,
+                                        project.startDate,
+                                        project.endDate,
+                                        project.id
+                                    );
+                                    const isConflict = !available;
+
+                                    return (
+                                        <tr key={item.id} className={cn("border-b hover:bg-muted/50 transition-colors cursor-pointer", isConflict && "bg-red-50 dark:bg-red-900/10")} onClick={() => handleEdit(item)}>
+                                            <td className="p-4 text-center" onClick={(e) => e.stopPropagation()}>
+                                                <Checkbox
+                                                    checked={selectedEquipmentIds?.includes(item.id)}
+                                                    onCheckedChange={() => toggleEquipmentSelection(item.id)}
+                                                    disabled={isConflict && !selectedEquipmentIds?.includes(item.id)}
+                                                />
+                                            </td>
+                                            <td className="p-4 font-medium">
+                                                {item.name}
+                                                {isConflict && (
+                                                    <div className="text-xs text-red-600 font-bold flex items-center mt-1">
+                                                        <AlertTriangle className="h-3 w-3 mr-1" />
+                                                        在庫不足 (他: {conflictProjectNames.join(', ')})
+                                                    </div>
+                                                )}
+                                            </td>
+                                            <td className="p-4 text-muted-foreground">{item.manufacturer}</td>
+                                            <td className="p-4">
+                                                <Badge variant="outline" className="mr-2 capitalize">{item.majorCategory}</Badge>
+                                                <span className="text-xs text-muted-foreground capitalize">{item.subCategory}</span>
+                                            </td>
+                                            <td className="p-4 text-center">
+                                                <span className={cn(isConflict ? "text-red-600 font-bold" : "")}>
+                                                    {remainingStock} / {item.stockQuantity || 0}
+                                                </span>
+                                            </td>
+                                            <td className="p-4 text-right">¥{(item.dayRate || 0).toLocaleString()}</td>
+                                            <td className="p-4 text-center">
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:bg-red-100" onClick={(e) => { e.stopPropagation(); deleteEquipment(item.id); }}>
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>

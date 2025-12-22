@@ -57,6 +57,13 @@ function Calendar({
                 IconLeft: ({ ...props }) => <ChevronLeft className="h-4 w-4" {...props} />,
                 IconRight: ({ ...props }) => <ChevronRight className="h-4 w-4" {...props} />,
             }}
+            // Added explicit styles to ensure visibility against Tailwind reset
+            modifiersClassNames={{
+                selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
+                today: "bg-accent text-accent-foreground",
+                disabled: "text-muted-foreground opacity-50",
+                outside: "text-muted-foreground opacity-50",
+            }}
             {...props}
         />
     )

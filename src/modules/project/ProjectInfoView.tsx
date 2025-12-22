@@ -87,7 +87,7 @@ export function ProjectInfoView() {
 
         <div className="flex flex-col h-full w-full bg-slate-50/50 dark:bg-background">
             {/* Fixed Header (Static Block) */}
-            <div className="border-b bg-background shrink-0 w-full shadow-sm py-4">
+            <div className="border-b bg-background shrink-0 w-full shadow-sm py-4 z-10">
                 <div className="max-w-5xl mx-auto px-8 flex justify-between items-center">
                     <div>
                         <h2 className="text-2xl font-bold tracking-tight">プロジェクト情報</h2>
@@ -103,8 +103,8 @@ export function ProjectInfoView() {
             </div>
 
             {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto">
-                <div className="max-w-5xl mx-auto p-8 space-y-8">
+            <div className="flex-1 overflow-y-auto min-h-0 bg-slate-50/50 dark:bg-background/50">
+                <div className="max-w-5xl mx-auto p-8 space-y-8 pb-20">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                         {/* Left Column: Basic Info */}
                         <div className="space-y-6">
