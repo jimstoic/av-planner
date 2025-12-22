@@ -15,14 +15,14 @@ import { useSession, signOut, signIn } from "next-auth/react";
 import { driveService } from "@/services/driveService";
 import { toast } from "sonner";
 import { useProjectStore } from "@/store/projectStore";
-import { Badge } from '@/components/ui/badge'; // Re-added Badge import
-import { ThemeToggle } from "@/components/theme-toggle"; // Re-added ThemeToggle import
+import { Badge } from '@/components/ui/badge';
 import React, { useEffect, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ConflictDisplay } from "@/components/project/ConflictDisplay";
 import Link from "next/link";
 
 export function Header() {
+    const { setTheme } = useTheme(); // Get setTheme
     const { projectName, clientName, ...projectData } = useProjectStore(); // Get all data
     const { data: session } = useSession();
     // Removed Picker Hook
@@ -167,6 +167,17 @@ export function Header() {
                                 </div>
                             </DropdownMenuLabel>
                             <DropdownMenuSeparator />
+                            <DropdownMenuLabel>Appearance</DropdownMenuLabel>
+                            <DropdownMenuItem onClick={() => setTheme("light")}>
+                                <Sun className="mr-2 h-4 w-4" /> Light
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setTheme("dark")}>
+                                <Moon className="mr-2 h-4 w-4" /> Dark
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setTheme("system")}>
+                                <LayoutGrid className="mr-2 h-4 w-4" /> System
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => signOut()}>
                                 <LogOut className="mr-2 h-4 w-4" />
                                 ログアウト
@@ -179,8 +190,6 @@ export function Header() {
                         ログイン
                     </Button>
                 )}
-
-                <ThemeToggle />
             </div>
         </header>
     );
