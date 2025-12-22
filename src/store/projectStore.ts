@@ -45,6 +45,8 @@ export interface ProjectState {
     }[];
     staff: Staff[];
     schedule: ScheduleItem[];
+    // UI State
+    editingEdgeId: string | null;
 }
 
 interface ProjectActions {
@@ -59,6 +61,7 @@ interface ProjectActions {
     setDriveFolderName: (name: string) => void;
     updateMetadata: (data: Partial<ProjectState>) => void;
     updateEdgeData: (id: string, data: Record<string, unknown>) => void;
+    setEditingEdgeId: (id: string | null) => void;
 
     // Cost Actions
     setAdditionalCosts: (costs: ProjectState['additionalCosts']) => void;
@@ -103,10 +106,13 @@ const initialState: ProjectState = {
     additionalCosts: [],
     staff: [],
     schedule: [],
+    editingEdgeId: null,
 };
 
 export const useProjectStore = create<ProjectState & ProjectActions>((set, get) => ({
     ...initialState,
+
+    setEditingEdgeId: (id) => set({ editingEdgeId: id }),
 
     loadProject: (state) => {
         // Ensure dates are parsed back to Date objects if they came from JSON

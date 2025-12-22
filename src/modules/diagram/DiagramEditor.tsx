@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import {
     ReactFlow,
     ReactFlowProvider,
@@ -56,6 +56,7 @@ function DiagramEditorContent() {
     const { screenToFlowPosition } = useReactFlow();
 
     // Use Zustand Global Store instead of local state
+    // Use Zustand Global Store instead of local state
     const {
         nodes,
         edges,
@@ -63,15 +64,49 @@ function DiagramEditorContent() {
         onEdgesChange,
         onConnect,
         addNode,
-        updateEdgeData // Need this to update length
+        updateEdgeData,
+        editingEdgeId,
+        setEditingEdgeId
     } = useProjectStore();
 
     // Edge Interaction State
-    const [isEdgeDialogOpen, setIsEdgeDialogOpen] = useState(false);
-    const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
     const [currentEdgeLength, setCurrentEdgeLength] = useState("1m");
+    const [currentEdgeType, setCurrentEdgeType] = useState("HDMI");
+
+    // Sync Dialog with Global State
+    const [isEdgeDialogOpen, setIsEdgeDialogOpen] = useState(false);
+
+    useEffect(() => {
+        if (editingEdgeId) {
+            const edge = edges.find(e => e.id === editingEdgeId);
+            if (edge) {
+                setCurrentEdgeLength((edge.data?.length as string) || "1m");
+                setCurrentEdgeType((edge.data?.type as string) || "Signal");
+                setIsEdgeDialogOpen(true);
+            }
+        } else {
+            setIsEdgeDialogOpen(false);
+        }
+    }, [editingEdgeId, edges]);
+
+    const handleDialogClose = (open: boolean) => {
+        setIsEdgeDialogOpen(open);
+        if (!open) setEditingEdgeId(null);
+    };
+
+    const handleEdgeSave = () => {
+        if (editingEdgeId) {
+            updateEdgeData(editingEdgeId, {
+                length: currentEdgeLength,
+                type: currentEdgeType
+            });
+            setEditingEdgeId(null); // Close via effect
+            toast.success(`ケーブル設定を更新しました`);
+        }
+    };
 
     const onConnectWrapper = useCallback(
+        // ... no change to onConnectWrapper logic 
         (params: Connection) => {
             const sourceNode = nodes.find((n) => n.id === params.source);
             const targetNode = nodes.find((n) => n.id === params.target);
@@ -172,18 +207,9 @@ function DiagramEditorContent() {
 
     const onEdgeClick = useCallback((event: React.MouseEvent, edge: Edge) => {
         event.stopPropagation();
-        setSelectedEdgeId(edge.id);
-        setCurrentEdgeLength((edge.data?.length as string) || "1m");
-        setIsEdgeDialogOpen(true);
-    }, []);
+        setEditingEdgeId(edge.id); // Just set global state
+    }, [setEditingEdgeId]);
 
-    const handleEdgeSave = () => {
-        if (selectedEdgeId) {
-            updateEdgeData(selectedEdgeId, { length: currentEdgeLength });
-            setIsEdgeDialogOpen(false);
-            toast.success(`ケーブル長さを変更しました: ${currentEdgeLength}`);
-        }
-    };
 
     return (
         <div ref={reactFlowWrapper} className="h-full w-full">
@@ -207,15 +233,34 @@ function DiagramEditorContent() {
                 <MiniMap />
             </ReactFlow>
 
-            <Dialog open={isEdgeDialogOpen} onOpenChange={setIsEdgeDialogOpen}>
+            <Dialog open={isEdgeDialogOpen} onOpenChange={handleDialogClose}>
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>ケーブル設定</DialogTitle>
                         <DialogDescription>
-                            ケーブルの長さを選択してください。
+                            ケーブルの種類と長さを選択してください。
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="type" className="text-right">
+                                種類
+                            </Label>
+                            <Select value={currentEdgeType} onValueChange={setCurrentEdgeType}>
+                                <SelectTrigger className="w-[180px]">
+                                    <SelectValue placeholder="種類を選択" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="HDMI">HDMI</SelectItem>
+                                    <SelectItem value="SDI">SDI</SelectItem>
+                                    <SelectItem value="XLR">XLR</SelectItem>
+                                    <SelectItem value="LAN">LAN</SelectItem>
+                                    <SelectItem value="Power">Power</SelectItem>
+                                    <SelectItem value="Optical">Optical</SelectItem>
+                                    <SelectItem value="Signal">Signal</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="length" className="text-right">
                                 長さ
