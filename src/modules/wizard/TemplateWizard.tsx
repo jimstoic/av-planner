@@ -62,7 +62,6 @@ export function TemplateWizard() {
             driveFileId: '',
             staff: [],
             schedule: [],
-            schedule: [],
             additionalCosts: [],
             editingEdgeId: null
         });

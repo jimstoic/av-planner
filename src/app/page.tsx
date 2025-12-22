@@ -88,7 +88,8 @@ export default function LandingPage() {
                 driveFolderId: '',
                 driveFolderName: '',
                 driveFileId: fileId,
-                id: data.id || 'imported-project'
+                id: data.id || 'imported-project',
+                editingEdgeId: null
             });
 
             useProjectStore.setState({ driveFileId: fileId });
