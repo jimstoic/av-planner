@@ -85,7 +85,7 @@ export const useProjectRegistryStore = create<ProjectRegistryState>()(
                     endDate: p.endDate
                 }))
             }),
-            // @ts-expect-error - onRehydrateStorage complex typing
+
             onRehydrateStorage: () => (state) => {
                 // Revive dates
                 if (state) {
