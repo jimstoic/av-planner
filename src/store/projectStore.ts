@@ -128,6 +128,19 @@ export const useProjectStore = create<ProjectState & ProjectActions>((set, get) 
         }
 
         const parsedState = recursiveDateParse(state) as ProjectState;
+
+        // Migration Logic: Ensure all edges are 'cable' type
+        if (parsedState.edges) {
+            parsedState.edges = parsedState.edges.map(edge => ({
+                ...edge,
+                type: 'cable', // Force type
+                data: {
+                    ...edge.data,
+                    length: (edge.data?.length as string) || '1m', // Ensure length exists
+                }
+            }));
+        }
+
         set(parsedState);
     },
 
