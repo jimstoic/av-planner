@@ -16,7 +16,10 @@ import { Hammer, Library, CalendarDays, Info, Receipt, CheckCircle2 } from "luci
 
 import { useSearchParams } from 'next/navigation'; // Added import
 
-export default function Home() {
+import { Suspense } from 'react'; // Added import
+
+// Extracted Component for SearchParams usage
+function ProjectContent() {
   const searchParams = useSearchParams(); // Get search params
   const initialTab = searchParams.get('tab') || "info"; // Default to info if no tab param
 
@@ -129,5 +132,14 @@ export default function Home() {
         )}
       </div>
     </div>
+  );
+}
+
+// Main Page Component
+export default function Home() {
+  return (
+    <Suspense fallback={<div className="flex h-screen w-full items-center justify-center">Loading...</div>}>
+      <ProjectContent />
+    </Suspense>
   );
 }
