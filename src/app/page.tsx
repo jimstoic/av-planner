@@ -5,14 +5,16 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Plus, FileJson, LayoutDashboard, LogIn, Calendar } from "lucide-react";
+import { Loader2, Plus, FileJson, LayoutDashboard, LogIn, Calendar, Box } from "lucide-react";
 import { driveService } from "@/services/driveService";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { useProjectStore } from "@/store/projectStore";
 import { TemplateWizard } from "@/modules/wizard/TemplateWizard";
 import { EquipmentMasterView } from "@/modules/library/EquipmentMasterView";
-import { Box } from "lucide-react";
+
+// App Version
+const APP_VERSION = 'Beta v0.1.0';
 
 export default function LandingPage() {
     const { data: session, status } = useSession();
@@ -145,6 +147,7 @@ export default function LandingPage() {
 
                     <div className="text-sm text-muted-foreground">
                         <p>Powered by Next.js & Google Drive Integration</p>
+                        <p className="text-xs mt-2 font-mono opacity-50">{APP_VERSION}</p>
                     </div>
                 </div>
             </div>
@@ -158,6 +161,9 @@ export default function LandingPage() {
             <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur px-6 shadow-sm">
                 <LayoutDashboard className="h-6 w-6 text-primary" />
                 <h1 className="text-lg font-bold">Dashboard</h1>
+                <Badge variant="outline" className="ml-2 text-xs font-normal text-muted-foreground bg-muted/50">
+                    {APP_VERSION}
+                </Badge>
                 <div className="ml-auto flex items-center gap-4">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <img
