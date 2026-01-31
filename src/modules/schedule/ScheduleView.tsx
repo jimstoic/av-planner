@@ -41,14 +41,21 @@ export function ScheduleView() {
         if (viewMode === 'global' && globalProjects.length === 0) {
             const fetchGlobal = async () => {
                 setIsLoadingGlobal(true);
-                const token = getAccessToken();
-                if (token) {
-                    const projects = await schedulerService.fetchAllProjects(token);
-                    setGlobalProjects(projects);
-                } else {
-                    console.warn("No access token found for global fetch");
+                try {
+                    const token = getAccessToken();
+                    if (token) {
+                        const projects = await schedulerService.fetchAllProjects(token);
+                        setGlobalProjects(projects);
+                    } else {
+                        console.warn("No access token found for global fetch");
+                        // In a real app, maybe redirect to login or show detailed error
+                    }
+                } catch (error) {
+                    console.error("Failed to load global projects", error);
+                    // toast.error("Global schedule load failed")
+                } finally {
+                    setIsLoadingGlobal(false);
                 }
-                setIsLoadingGlobal(false);
             };
             fetchGlobal();
         }
@@ -200,7 +207,7 @@ export function ScheduleView() {
                                         )}
                                     >
                                         <span className="font-semibold">{format(day, 'M/d')}</span>
-                                        <span className="text-muted-foreground">{format(day, 'vip', { locale: ja })}</span>
+                                        <span className="text-muted-foreground">{format(day, 'E', { locale: ja })}</span>
                                     </div>
                                 ))}
                             </div>
