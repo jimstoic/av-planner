@@ -9,8 +9,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, Save, FolderOpen, RefreshCw } from "lucide-react";
+import { Calendar as CalendarIcon, Save, FolderOpen, RefreshCw, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { driveService } from "@/services/driveService";
+import { useSession } from "next-auth/react";
+import { toast } from "sonner";
 
 export function ProjectInfoView() {
     const {
@@ -21,8 +24,11 @@ export function ProjectInfoView() {
         venue,
         staffName,
         driveFolderId,
+        driveFileId,
         updateMetadata
     } = useProjectStore();
+
+    const { data: session } = useSession();
 
     // Removed Picker Hook
 
@@ -40,6 +46,7 @@ export function ProjectInfoView() {
     });
 
     const [isDirty, setIsDirty] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
 
     // Popover states
     const [isStartOpen, setIsStartOpen] = useState(false);
@@ -61,7 +68,14 @@ export function ProjectInfoView() {
         });
     }, [projectName, startDate, endDate, clientName, venue, staffName, driveFolderId]);
 
-    const handleSave = () => {
+    const handleSave = async () => {
+        if (!session?.accessToken) {
+            toast.error("ログインが必要です");
+            return;
+        }
+
+        setIsSaving(true);
+        // 1. Update Store Metadata first
         updateMetadata({
             projectName: formData.name,
             clientName: formData.client,
@@ -72,7 +86,52 @@ export function ProjectInfoView() {
             setupDate: formData.setupDate || new Date(),
             driveFolderId: formData.folderId
         });
-        setIsDirty(false);
+
+        // 2. Prepare Data for JSON
+        const projectState = useProjectStore.getState();
+        const savePayload = {
+            version: "1.0.0",
+            id: projectState.id,
+            nodes: projectState.nodes,
+            edges: projectState.edges,
+            projectName: formData.name,
+            clientName: formData.client,
+            venue: formData.venue,
+            startDate: formData.startDate,
+            endDate: formData.endDate,
+            setupDate: formData.setupDate,
+            staff: projectState.staff,
+            selectedEquipmentIds: projectState.selectedEquipmentIds,
+            additionalCosts: projectState.additionalCosts,
+            meta: {
+                updatedAt: new Date().toISOString(),
+                updatedBy: session.user?.email
+            }
+        };
+
+        try {
+            const fileName = `${formData.name || 'Untitled'}.json`;
+            const result = await driveService.saveFile(
+                session.accessToken,
+                fileName,
+                savePayload,
+                undefined, // Use default or env folder
+                driveFileId || undefined // Update if exists
+            );
+
+            // Update driveFileId if new file
+            if (result.id) {
+                useProjectStore.setState({ driveFileId: result.id });
+            }
+
+            setIsDirty(false);
+            toast.success("プロジェクトを保存しました");
+        } catch (e) {
+            console.error(e);
+            toast.error("保存に失敗しました");
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const handleChange = (field: keyof typeof formData, value: any) => {
@@ -95,8 +154,8 @@ export function ProjectInfoView() {
                             プロジェクトの基本情報と連携設定を管理します
                         </p>
                     </div>
-                    <Button onClick={handleSave} disabled={!isDirty} size="lg">
-                        <Save className="mr-2 h-4 w-4" />
+                    <Button onClick={handleSave} disabled={!isDirty || isSaving} size="lg">
+                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                         {isDirty ? '変更を保存' : '保存済み'}
                     </Button>
                 </div>

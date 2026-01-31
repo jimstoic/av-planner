@@ -15,7 +15,13 @@ import {
     Edge,
     useReactFlow,
     NodeTypes,
+    Panel,
+    getNodesBounds,
+    getViewportForBounds,
 } from '@xyflow/react';
+import { toPng } from 'html-to-image';
+import { jsPDF } from 'jspdf';
+import { Download, FileImage, FileText } from 'lucide-react';
 import '@xyflow/react/dist/style.css';
 import { toast } from 'sonner';
 
@@ -53,7 +59,7 @@ const edgeTypes = {
 
 function DiagramEditorContent() {
     const reactFlowWrapper = useRef<HTMLDivElement>(null);
-    const { screenToFlowPosition } = useReactFlow();
+    const { screenToFlowPosition, getNodes, getEdges } = useReactFlow();
 
     // Use Zustand Global Store instead of local state
     // Use Zustand Global Store instead of local state
@@ -102,6 +108,68 @@ function DiagramEditorContent() {
             });
             setEditingEdgeId(null); // Close via effect
             toast.success(`ケーブル設定を更新しました`);
+        }
+    };
+
+    const downloadImage = (dataUrl: string) => {
+        const a = document.createElement('a');
+        a.setAttribute('download', 'diagram.png');
+        a.setAttribute('href', dataUrl);
+        a.click();
+    };
+
+    const handleExport = async (format: 'png' | 'pdf') => {
+        // Validation: Check if there are nodes
+        if (getNodes().length === 0) {
+            toast.error("エクスポートするノードがありません");
+            return;
+        }
+
+        const nodesBounds = getNodesBounds(getNodes());
+        // Calculate dimensions with some padding
+        const width = nodesBounds.width + 100;
+        const height = nodesBounds.height + 100;
+
+        // Transform to fit the view for capture
+        // We use toPng logic but we might need to adjust viewport momentarily or just use the whole canvas
+        // html-to-image captures the DOM element. 
+        // Ideally we want to capture the whole flow, not just the viewport.
+        // But for simplicity/robustness, we stick to what react flow recommends:
+        // https://reactflow.dev/learn/advanced-use/exporting-images
+
+        if (!reactFlowWrapper.current) return;
+
+        const toastId = toast.loading(`${format.toUpperCase()} を作成中...`);
+
+        try {
+            const dataUrl = await toPng(reactFlowWrapper.current, {
+                backgroundColor: '#eee',
+                width: reactFlowWrapper.current.offsetWidth, // Or full scroll width if we want
+                height: reactFlowWrapper.current.offsetHeight,
+                style: {
+                    // Force transform or specific styles if needed
+                }
+            });
+
+            if (format === 'png') {
+                downloadImage(dataUrl);
+            } else {
+                const pdf = new jsPDF('l', 'mm', 'a4'); // A4 Landscape
+                const pageWidth = pdf.internal.pageSize.getWidth();
+                const pageHeight = pdf.internal.pageSize.getHeight();
+
+                // Scale image to fit A4
+                const imgProps = pdf.getImageProperties(dataUrl);
+                const pdfWidth = pageWidth;
+                const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+                pdf.addImage(dataUrl, 'PNG', 0, 0, pdfWidth, pdfHeight);
+                pdf.save('diagram.pdf');
+            }
+            toast.success("エクスポート完了", { id: toastId });
+        } catch (error) {
+            console.error(error);
+            toast.error("エクスポートに失敗しました", { id: toastId });
         }
     };
 
@@ -231,6 +299,14 @@ function DiagramEditorContent() {
                 <Background color="#eee" gap={16} /> {/* Lighter background */}
                 <Controls />
                 <MiniMap />
+                <Panel position="top-right" className="bg-white/80 p-2 rounded-lg border shadow-sm backdrop-blur flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => handleExport('png')}>
+                        <FileImage className="mr-2 h-4 w-4" /> PNG
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => handleExport('pdf')}>
+                        <FileText className="mr-2 h-4 w-4" /> PDF
+                    </Button>
+                </Panel>
             </ReactFlow>
 
             <Dialog open={isEdgeDialogOpen} onOpenChange={handleDialogClose}>

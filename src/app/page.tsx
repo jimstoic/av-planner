@@ -11,14 +11,16 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { useProjectStore } from "@/store/projectStore";
 import { TemplateWizard } from "@/modules/wizard/TemplateWizard";
+import { EquipmentMasterView } from "@/modules/library/EquipmentMasterView";
+import { Box } from "lucide-react";
 
 export default function LandingPage() {
     const { data: session, status } = useSession();
     const router = useRouter();
     const { loadProject, resetProject } = useProjectStore();
 
-    // View State: 'dashboard' | 'open' | 'template'
-    const [view, setView] = useState<'dashboard' | 'open' | 'template'>('dashboard');
+    // View State: 'dashboard' | 'open' | 'template' | 'library'
+    const [view, setView] = useState<'dashboard' | 'open' | 'template' | 'library'>('dashboard');
 
     // State for Drive Files
     const [driveFiles, setDriveFiles] = useState<any[]>([]);
@@ -220,6 +222,24 @@ export default function LandingPage() {
                                 </CardHeader>
                             </Card>
                         </div>
+
+                        {/* Admin Row or Secondary Options */}
+                        <div className="mt-8 pt-8 border-t">
+                            <h3 className="text-xl font-bold tracking-tight mb-4 text-muted-foreground">管理ツール</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                                {/* Option 5: Equipment Master */}
+                                <Card className="hover:shadow-lg transition-all cursor-pointer border-2 hover:border-orange-500/50 group" onClick={() => setView('library')}>
+                                    <CardHeader className="text-center pb-2">
+                                        <div className="mx-auto bg-orange-100 dark:bg-orange-900/20 p-4 rounded-full w-20 h-20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                                            <Box className="w-10 h-10 text-orange-600" />
+                                        </div>
+                                        <CardTitle>機材マスター</CardTitle>
+                                        <CardDescription>共有の機材リストを管理・編集します</CardDescription>
+                                    </CardHeader>
+                                </Card>
+                            </div>
+                        </div>
+
                     </div>
                 )}
 
@@ -348,6 +368,17 @@ export default function LandingPage() {
                             </Button>
                         </div>
                         <TemplateWizard />
+                    </div>
+                )}
+
+                {view === 'library' && (
+                    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                        <div className="flex items-center gap-4 border-b pb-4">
+                            <Button variant="ghost" onClick={() => setView('dashboard')}>
+                                ← 戻る
+                            </Button>
+                        </div>
+                        <EquipmentMasterView />
                     </div>
                 )}
             </main>

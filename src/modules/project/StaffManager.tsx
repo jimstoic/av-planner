@@ -8,11 +8,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Users, Pencil, Trash2, Plus } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { staffService } from '@/services/staffService';
+import { useSession } from 'next-auth/react';
+import { toast } from 'sonner';
+import { Loader2, CloudDownload, CloudUpload } from 'lucide-react';
 
 export function StaffManager() {
     const { staff, addStaff, updateStaff, removeStaff } = useProjectStore();
+    const { data: session } = useSession();
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingStaff, setEditingStaff] = useState<Partial<Staff> | null>(null);
+    const [isLoadingMaster, setIsLoadingMaster] = useState(false);
 
     const handleSave = () => {
         if (!editingStaff?.name) return;
@@ -61,6 +67,57 @@ export function StaffManager() {
                 </h3>
                 <Button onClick={handleAddNew} size="sm">
                     <Plus className="mr-2 h-4 w-4" /> 新規スタッフ登録
+                </Button>
+            </div>
+
+            <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={async () => {
+                    if (!session?.accessToken) return;
+                    setIsLoadingMaster(true);
+                    try {
+                        const masterStaff = await staffService.fetchMasterStaffList(session.accessToken);
+                        if (masterStaff.length === 0) {
+                            toast.info("マスターリストが見つかりませんでした");
+                        } else {
+                            // Merge logic: Add if not exists by ID
+                            let addedCount = 0;
+                            masterStaff.forEach(ms => {
+                                if (!staff.find(s => s.id === ms.id)) {
+                                    addStaff(ms);
+                                    addedCount++;
+                                }
+                            });
+                            toast.success(`${addedCount} 名のスタッフをマスターから読み込みました`);
+                        }
+                    } catch (e) {
+                        console.error(e);
+                        toast.error("マスターリストの読み込みに失敗しました");
+                    } finally {
+                        setIsLoadingMaster(false);
+                    }
+                }} disabled={isLoadingMaster}>
+                    {isLoadingMaster ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CloudDownload className="mr-2 h-4 w-4" />}
+                    共有マスターから読み込み
+                </Button>
+
+                <Button variant="outline" size="sm" onClick={async () => {
+                    if (!session?.accessToken) return;
+                    if (staff.length === 0) return toast.warning("保存するスタッフがいません");
+
+                    if (!confirm("現在のリストで共有マスターを上書き更新しますか？")) return;
+
+                    setIsLoadingMaster(true);
+                    try {
+                        await staffService.saveMasterStaffList(session.accessToken, staff);
+                        toast.success("共有マスターに保存しました");
+                    } catch (e) {
+                        console.error(e);
+                        toast.error("保存に失敗しました");
+                    } finally {
+                        setIsLoadingMaster(false);
+                    }
+                }} disabled={isLoadingMaster}>
+                    <CloudUpload className="mr-2 h-4 w-4" /> 共有マスターへ保存
                 </Button>
             </div>
 

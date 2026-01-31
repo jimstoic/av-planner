@@ -27,6 +27,7 @@ export interface Equipment {
 
     // Specs
     powerConsumption?: number; // Watts
+    weight?: number; // kg
     stockQuantity: number; // Inventory count
     connectors?: Connector[]; // kg
     dimensions?: { w: number, h: number, d: number };

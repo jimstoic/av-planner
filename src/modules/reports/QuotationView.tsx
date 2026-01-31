@@ -95,9 +95,9 @@ export function QuotationView() {
     const highlightColor = isInvoiceMode ? "bg-emerald-600" : "bg-blue-600";
 
     return (
-        <div className="flex flex-col h-full w-full bg-slate-50/50 dark:bg-background overflow-hidden">
+        <div className="flex flex-col h-full w-full bg-slate-50/50 dark:bg-background overflow-hidden print:bg-white print:overflow-visible print:h-auto">
             {/* Header */}
-            <div className="border-b bg-background shadow-sm py-4 shrink-0">
+            <div className="border-b bg-background shadow-sm py-4 shrink-0 print:hidden">
                 <div className="max-w-5xl mx-auto px-8 flex justify-between items-center">
                     <div>
                         <h2 className="text-2xl font-bold tracking-tight">
@@ -122,8 +122,8 @@ export function QuotationView() {
             </div>
 
             {/* Content */}
-            <div className="flex-1 overflow-y-auto p-8 font-sans">
-                <div className="max-w-4xl mx-auto bg-white dark:bg-card shadow-lg rounded-none border overflow-hidden min-h-[1000px] print:shadow-none print:border-none">
+            <div className="flex-1 overflow-y-auto p-8 font-sans print:p-0 print:overflow-visible">
+                <div className="max-w-4xl mx-auto bg-white dark:bg-card shadow-lg rounded-none border overflow-hidden min-h-[1000px] print:shadow-none print:border-none print:w-full print:max-w-none print:min-h-0">
                     {/* Document Header */}
                     <div className="p-12 border-b bg-white">
                         <div className="flex justify-between items-start mb-12">
@@ -168,12 +168,12 @@ export function QuotationView() {
                                 </h3>
                                 <Dialog>
                                     <DialogTrigger asChild>
-                                        <Button variant="ghost" size="sm" className="h-6 text-xs text-muted-foreground hover:text-primary">
+                                        <Button variant="ghost" size="sm" className="h-6 text-xs text-muted-foreground hover:text-primary print:hidden">
                                             <Users className="w-3 h-3 mr-1" />
                                             スタッフ管理
                                         </Button>
                                     </DialogTrigger>
-                                    <DialogContent className="max-w-3xl">
+                                    <DialogContent className="max-w-3xl print:hidden">
                                         <StaffManager />
                                     </DialogContent>
                                 </Dialog>
@@ -205,7 +205,7 @@ export function QuotationView() {
                         </div>
 
                         {/* 2. Equipment */}
-                        <div>
+                        <div className="break-before-auto">
                             <h3 className={`font-bold text-lg mb-4 border-b-2 pb-1 ${themeColor}`}>
                                 2. 機材費 (Equipment Expenses)
                             </h3>
@@ -246,7 +246,7 @@ export function QuotationView() {
                             <>
                                 {/* 3. Production */}
                                 {productionItems.length > 0 && (
-                                    <div>
+                                    <div className="break-before-auto">
                                         <h3 className={`font-bold text-lg mb-4 border-b-2 pb-1 ${themeColor}`}>
                                             3. 制作費 (Production Expenses)
                                         </h3>
@@ -271,7 +271,7 @@ export function QuotationView() {
 
                                 {/* 4. Other */}
                                 {otherItems.length > 0 && (
-                                    <div>
+                                    <div className="break-before-auto">
                                         <h3 className={`font-bold text-lg mb-4 border-b-2 pb-1 ${themeColor}`}>
                                             4. その他 (Other Expenses)
                                         </h3>
@@ -297,8 +297,8 @@ export function QuotationView() {
                         )}
 
                         {/* Grand Total Area */}
-                        <div className="flex justify-end pt-8">
-                            <div className="w-[300px] bg-slate-50 dark:bg-muted/10 p-6 rounded-lg space-y-3">
+                        <div className="flex justify-end pt-8 break-inside-avoid">
+                            <div className="w-[300px] bg-slate-50 dark:bg-muted/10 p-6 rounded-lg space-y-3 print:bg-transparent print:border print:border-slate-200">
                                 <div className="flex justify-between text-sm">
                                     <span className="font-medium text-muted-foreground">小計</span>
                                     <span>¥{totalEstimatedCost.toLocaleString()}</span>
@@ -326,6 +326,6 @@ export function QuotationView() {
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }
