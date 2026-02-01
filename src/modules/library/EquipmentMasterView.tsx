@@ -153,6 +153,7 @@ export function EquipmentMasterView() {
                             <TableHead>機材名</TableHead>
                             <TableHead>メーカー</TableHead>
                             <TableHead>カテゴリー</TableHead>
+                            <TableHead>保管場所</TableHead>
                             <TableHead className="text-center">I/O</TableHead>
                             <TableHead className="text-right">参考単価</TableHead>
                             <TableHead className="w-[100px]"></TableHead>
@@ -174,6 +175,9 @@ export function EquipmentMasterView() {
                                         <Badge variant="outline" className={`px-2 py-1 rounded-full text-xs font-medium border ${getCategoryColor(item.majorCategory || 'other')}`}>
                                             {item.majorCategory}
                                         </Badge>
+                                    </TableCell>
+                                    <TableCell className="text-xs text-muted-foreground capitalize">
+                                        {item.storageLocation || '-'}
                                     </TableCell>
                                     <TableCell className="text-center font-mono text-xs text-muted-foreground">
                                         {item.inputPortCount} In / {item.outputPortCount} Out

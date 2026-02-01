@@ -83,6 +83,7 @@ export function LibraryView() {
                                     <th className="h-12 px-4 text-left font-medium">機材名</th>
                                     <th className="h-12 px-4 text-left font-medium">メーカー</th>
                                     <th className="h-12 px-4 text-left font-medium">カテゴリ</th>
+                                    <th className="h-12 px-4 text-left font-medium">保管場所</th>
                                     <th className="h-12 px-4 text-center font-medium">在庫</th>
                                     <th className="h-12 px-4 text-right font-medium">単価</th>
                                     <th className="h-12 px-4 text-center font-medium">操作</th>
@@ -123,6 +124,7 @@ export function LibraryView() {
                                                 <Badge variant="outline" className={`mr-2 capitalize border ${getCategoryColor(item.majorCategory || 'other')}`}>{item.majorCategory}</Badge>
                                                 <span className="text-xs text-muted-foreground capitalize">{item.subCategory}</span>
                                             </td>
+                                            <td className="p-4 text-xs text-muted-foreground capitalize">{item.storageLocation || '-'}</td>
                                             <td className="p-4 text-center">
                                                 <span className={cn(isConflict ? "text-red-600 font-bold" : "")}>
                                                     {remainingStock} / {item.stockQuantity || 0}
