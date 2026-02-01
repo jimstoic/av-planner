@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Save } from "lucide-react";
-import { Equipment, EquipmentCategory, EquipmentSubCategory, Connector } from "@/types/equipment";
+import { Equipment, EquipmentCategory, EquipmentSubCategory, Connector, StorageLocation } from "@/types/equipment";
 import { PortCounter } from '@/modules/library/PortCounter'; // Assuming PortCounter is exported from here or needs move
 
 // Sub-categories definition (Moved from LibraryView to share)
@@ -68,6 +68,7 @@ export function EquipmentForm({ initialData, onSave, onCancel, isDialog = false 
         outputPortCount: 0,
         powerConsumption: 0,
         weight: 0,
+        storageLocation: 'other',
         ...initialData
     });
 
@@ -172,6 +173,19 @@ export function EquipmentForm({ initialData, onSave, onCancel, isDialog = false 
                                 <label className="text-sm font-medium">日単価 (¥)</label>
                                 <Input type="number" min="0" value={currentItem.dayRate} onChange={e => setCurrentItem(prev => ({ ...prev, dayRate: Number(e.target.value) }))} placeholder="0" />
                             </div>
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">保管場所 (Location)</label>
+                            <Select value={currentItem.storageLocation} onValueChange={(v) => setCurrentItem(prev => ({ ...prev, storageLocation: v as StorageLocation }))}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="nakano">中野 (Nakano)</SelectItem>
+                                    <SelectItem value="sendagaya">千駄ヶ谷 (Sendagaya)</SelectItem>
+                                    <SelectItem value="osaka">大阪 (Osaka)</SelectItem>
+                                    <SelectItem value="chiba">千葉 (Chiba)</SelectItem>
+                                    <SelectItem value="other">その他 (Other)</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
                         <div className="space-y-2">
                             <label className="text-sm font-medium">備考</label>

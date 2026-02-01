@@ -7,6 +7,8 @@ export type EquipmentSubCategory =
     | 'pc' | 'network' // Control
     | 'accessory' | 'other';
 
+export type StorageLocation = 'nakano' | 'sendagaya' | 'osaka' | 'chiba' | 'other';
+
 export interface Connector {
     id: string;
     name: string; // e.g., "HDMI In 1", "XLR Out L"
@@ -24,6 +26,7 @@ export interface Equipment {
     model?: string;
     description?: string;
     imageUrl?: string;
+    storageLocation?: StorageLocation;
 
     // Specs
     powerConsumption?: number; // Watts
