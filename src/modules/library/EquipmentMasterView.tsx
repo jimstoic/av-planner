@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Loader2, Plus, Pencil, Trash2, Save, CloudUpload, Search, Monitor, Box } from 'lucide-react';
 import { equipmentService } from '@/services/equipmentService';
 import { Equipment } from '@/types/equipment';
-import { initialEquipment } from '@/data/initialEquipment';
+import { Equipment } from '@/types/equipment';
 
 export function EquipmentMasterView() {
     const { data: session } = useSession();
@@ -59,28 +59,7 @@ export function EquipmentMasterView() {
         }
     };
 
-    const handleImportSeed = async () => {
-        if (!confirm("注意：Excelから取り込んだ初期データで現在のリストを完全に上書きしてもよろしいですか？")) return;
 
-        setIsLoading(true);
-        try {
-            // Use locally imported initialEquipment
-            const seedData = initialEquipment;
-            setEquipmentList(seedData);
-
-            if (session?.accessToken) {
-                await equipmentService.saveMasterEquipmentList(session.accessToken, seedData);
-                toast.success(`初期データ(${seedData.length}件)を取り込み、保存しました`);
-            } else {
-                toast.warning("データはロードされましたが、保存にはログインが必要です");
-            }
-        } catch (e) {
-            console.error(e);
-            toast.error("Import failed");
-        } finally {
-            setIsLoading(false);
-        }
-    };
 
     const handleSaveItem = () => {
         if (!editingItem?.name) return;
@@ -130,9 +109,7 @@ export function EquipmentMasterView() {
                     <p className="text-muted-foreground">全てのプロジェクトで共有される機材リストを管理します</p>
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="outline" onClick={handleImportSeed} className="text-orange-600 border-orange-200 hover:bg-orange-50">
-                        <CloudUpload className="mr-2 h-4 w-4" /> Excelデータ取込
-                    </Button>
+
                     <Button variant="outline" onClick={loadMasterList} disabled={isLoading}>
                         <Search className="mr-2 h-4 w-4" /> 再読み込み
                     </Button>
