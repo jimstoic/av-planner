@@ -8,6 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { Loader2, Plus, Pencil, Trash2, Save, CloudUpload, Search, Monitor, Box } from 'lucide-react';
+import { equipmentService } from '@/services/equipmentService';
 import { Equipment } from '@/types/equipment';
 import { initialEquipment } from '@/data/initialEquipment';
 
