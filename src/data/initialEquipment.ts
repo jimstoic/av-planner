@@ -1,4 +1,4 @@
-import { Equipment } from '@/types/equipment';
+import { Equipment, EquipmentCategory, EquipmentSubCategory } from '@/types/equipment';
 
 const rawData = [
     {
