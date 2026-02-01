@@ -14,6 +14,7 @@ import { Equipment } from '@/types/equipment';
 import { initialEquipment } from '@/data/initialEquipment';
 import { getCategoryColor } from '@/constants/colors';
 import { Badge } from '@/components/ui/badge';
+import { EquipmentForm } from '@/components/library/EquipmentForm';
 
 
 export function EquipmentMasterView() {
@@ -85,33 +86,14 @@ export function EquipmentMasterView() {
         }
     };
 
-    const handleSaveItem = () => {
-        if (!editingItem?.name) return;
-
+    const handleSaveItem = (item: Equipment) => {
         setEquipmentList(prev => {
-            if (editingItem.id) {
+            if (item.id && prev.find(p => p.id === item.id)) {
                 // Update
-                return prev.map(item => item.id === editingItem.id ? { ...item, ...editingItem } as Equipment : item);
+                return prev.map(p => p.id === item.id ? item : p);
             } else {
                 // Add
-                const newItem: Equipment = {
-                    id: `eq-master-${Date.now()}`,
-                    name: editingItem.name || 'Unknown',
-                    majorCategory: (editingItem.majorCategory || 'video') as any,
-                    subCategory: (editingItem.subCategory || 'other') as any,
-                    manufacturer: editingItem.manufacturer || '',
-                    dayRate: Number(editingItem.dayRate) || 0,
-                    inputPortCount: Number(editingItem.inputPortCount) || 0,
-                    outputPortCount: Number(editingItem.outputPortCount) || 0,
-                    powerConsumption: Number(editingItem.powerConsumption) || 0,
-                    weight: Number(editingItem.weight) || 0,
-                    dimensions: {
-                        w: 0, h: 0, d: 0
-                    },
-                    stockQuantity: 0, // Default
-                    connectors: [] // Simplified for now
-                };
-                return [...prev, newItem];
+                return [...prev, item];
             }
         });
         setIsDialogOpen(false);
@@ -157,7 +139,7 @@ export function EquipmentMasterView() {
                     />
                 </div>
                 <Button onClick={() => {
-                    setEditingItem({ majorCategory: 'video', inputPortCount: 1, outputPortCount: 1 });
+                    setEditingItem({});
                     setIsDialogOpen(true);
                 }}>
                     <Plus className="mr-2 h-4 w-4" /> 新規登録
@@ -217,50 +199,17 @@ export function EquipmentMasterView() {
             </div>
 
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <DialogContent className="max-w-xl">
+                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
-                        <DialogTitle>{editingItem?.id ? '機材編集' : '新規機材登録'}</DialogTitle>
+                        <DialogTitle>{editingItem?.id ? '機材編集 (Master)' : '新規機材登録 (Master)'}</DialogTitle>
                     </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label>名称</Label>
-                                <Input value={editingItem?.name || ''} onChange={e => setEditingItem(p => ({ ...p, name: e.target.value }))} />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>メーカー</Label>
-                                <Input value={editingItem?.manufacturer || ''} onChange={e => setEditingItem(p => ({ ...p, manufacturer: e.target.value }))} />
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-3 gap-4">
-                            <div className="space-y-2">
-                                <Label>カテゴリー</Label>
-                                <Input value={editingItem?.majorCategory || ''} onChange={e => setEditingItem(p => ({ ...p, majorCategory: e.target.value as any }))} />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>単価</Label>
-                                <Input type="number" value={editingItem?.dayRate || ''} onChange={e => setEditingItem(p => ({ ...p, dayRate: Number(e.target.value) }))} />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>消費電力 (W)</Label>
-                                <Input type="number" value={editingItem?.powerConsumption || ''} onChange={e => setEditingItem(p => ({ ...p, powerConsumption: Number(e.target.value) }))} />
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4 border-t pt-4">
-                            <div className="space-y-2">
-                                <Label>入力ポート数</Label>
-                                <Input type="number" value={editingItem?.inputPortCount || 0} onChange={e => setEditingItem(p => ({ ...p, inputPortCount: Number(e.target.value) }))} />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>出力ポート数</Label>
-                                <Input type="number" value={editingItem?.outputPortCount || 0} onChange={e => setEditingItem(p => ({ ...p, outputPortCount: Number(e.target.value) }))} />
-                            </div>
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsDialogOpen(false)}>キャンセル</Button>
-                        <Button onClick={handleSaveItem}>確定</Button>
-                    </DialogFooter>
+
+                    <EquipmentForm
+                        initialData={editingItem || {}}
+                        onSave={handleSaveItem}
+                        onCancel={() => setIsDialogOpen(false)}
+                        isDialog={true}
+                    />
                 </DialogContent>
             </Dialog>
         </div>
