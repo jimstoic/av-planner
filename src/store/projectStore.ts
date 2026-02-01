@@ -31,6 +31,7 @@ export interface ProjectState {
     setupDate: Date;
     venue: string;
     staffName: string; // Kept for backward compatibility, serves as "Manager Name"
+    spreadsheetUrl?: string;
     driveFolderId: string;
     driveFileId: string;
     driveFolderName: string;
@@ -99,6 +100,7 @@ const initialState: ProjectState = {
     setupDate: new Date(),
     venue: '',
     staffName: '',
+    spreadsheetUrl: '',
     driveFolderId: '',
     driveFileId: '',
     driveFolderName: '',

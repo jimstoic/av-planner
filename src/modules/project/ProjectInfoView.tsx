@@ -42,6 +42,7 @@ export function ProjectInfoView() {
         client: "",
         venue: "",
         staff: "",
+        spreadsheetUrl: "",
         folderId: ""
     });
 
@@ -64,6 +65,7 @@ export function ProjectInfoView() {
             client: clientName,
             venue: venue || "",
             staff: staffName,
+            spreadsheetUrl: useProjectStore.getState().spreadsheetUrl || "",
             folderId: driveFolderId || ""
         });
     }, [projectName, startDate, endDate, clientName, venue, staffName, driveFolderId]);
@@ -84,6 +86,7 @@ export function ProjectInfoView() {
             startDate: formData.startDate || new Date(),
             endDate: formData.endDate || new Date(),
             setupDate: formData.setupDate || new Date(),
+            spreadsheetUrl: formData.spreadsheetUrl,
             driveFolderId: formData.folderId
         });
 
@@ -97,6 +100,7 @@ export function ProjectInfoView() {
             projectName: formData.name,
             clientName: formData.client,
             venue: formData.venue,
+            spreadsheetUrl: formData.spreadsheetUrl,
             startDate: formData.startDate,
             endDate: formData.endDate,
             setupDate: formData.setupDate,
@@ -304,6 +308,15 @@ export function ProjectInfoView() {
                                         onChange={(e) => handleChange('description', e.target.value)}
                                         placeholder="プロジェクトの概要や共有事項..."
                                         className="min-h-[120px]"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="spreadsheetUrl">案件スプレッドシート (URL)</Label>
+                                    <Input
+                                        id="spreadsheetUrl"
+                                        value={formData.spreadsheetUrl}
+                                        onChange={(e) => handleChange('spreadsheetUrl', e.target.value)}
+                                        placeholder="https://docs.google.com/spreadsheets/d/..."
                                     />
                                 </div>
                             </div>

@@ -9,12 +9,13 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Calendar, Clock, User, Trash2, ChevronLeft, ChevronRight, Globe, Layers, HardDrive } from 'lucide-react';
+import { Plus, Calendar, Clock, User, Trash2, ChevronLeft, ChevronRight, Globe, Layers, HardDrive, FileJson } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { StaffManager } from '@/modules/project/StaffManager';
 import { schedulerService, ProjectSummary } from '@/services/schedulerService';
+import { driveService } from '@/services/driveService';
 
 export function ScheduleView() {
     const {
@@ -62,7 +63,61 @@ export function ScheduleView() {
     }, [viewMode]);
 
     const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [isNewProjectDialogOpen, setIsNewProjectDialogOpen] = useState(false);
+    const [newProjectData, setNewProjectData] = useState({ name: '', client: '', start: new Date(), end: new Date() });
     const [editingItem, setEditingItem] = useState<Partial<ScheduleItem> | null>(null);
+
+    const handleCreateProject = async () => {
+        const token = getAccessToken();
+        if (!token) {
+            alert("ログインが必要です");
+            return;
+        }
+        if (!newProjectData.name) return;
+
+        try {
+            // Simplified creation logic similar to landing page but minimal
+            // We need to import driveService properly or move logic here.
+            // Since driveService is available, we can use it, but we need to construct a JSON body.
+            const projectBody = {
+                version: "1.0.0",
+                id: crypto.randomUUID(),
+                nodes: [],
+                edges: [],
+                projectName: newProjectData.name,
+                clientName: newProjectData.client,
+                startDate: newProjectData.start,
+                endDate: newProjectData.end,
+                setupDate: newProjectData.start, // Default
+                staff: [],
+                selectedEquipmentIds: [],
+                additionalCosts: [],
+                schedule: [], // Empty initially
+                meta: {
+                    createdAt: new Date().toISOString()
+                }
+            };
+
+            // Need to save via API
+            // Reusing driveService.saveFile requires parsing it again? No it takes object.
+            // But wait, driveService is usually client-side authenticated context...
+            // The token from getAccessToken() is for RAW fetch.
+            // driveService expects just access token string if using its methods.
+            // Let's use driveService directly.
+
+            await driveService.saveFile(token, `${newProjectData.name}.json`, projectBody);
+
+            // Refresh global view
+            const projects = await schedulerService.fetchAllProjects(token);
+            setGlobalProjects(projects);
+            setIsNewProjectDialogOpen(false);
+            setNewProjectData({ name: '', client: '', start: new Date(), end: new Date() });
+
+        } catch (e) {
+            console.error(e);
+            alert("作成に失敗しました");
+        }
+    };
 
     // Calculate timeline range
     const timelineStart = useMemo(() => addDays(startOfDay(startDate), -1), [startDate]);
@@ -156,6 +211,66 @@ export function ScheduleView() {
                         <Button size="sm" onClick={handleAddNew}>
                             <Plus className="mr-2 h-4 w-4" /> 追加
                         </Button>
+                    </div>
+                )}
+
+                {viewMode === 'global' && (
+                    <div className="flex gap-2">
+                        <Dialog open={isNewProjectDialogOpen} onOpenChange={setIsNewProjectDialogOpen}>
+                            <DialogTrigger asChild>
+                                <Button size="sm">
+                                    <Plus className="mr-2 h-4 w-4" /> 新規案件
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>新規プロジェクト作成</DialogTitle>
+                                </DialogHeader>
+                                <div className="space-y-4 py-4">
+                                    <div className="space-y-2">
+                                        <Label>プロジェクト名</Label>
+                                        <Input value={newProjectData.name} onChange={e => setNewProjectData(p => ({ ...p, name: e.target.value }))} placeholder="例: ○○展示会" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>クライアント名</Label>
+                                        <Input value={newProjectData.client} onChange={e => setNewProjectData(p => ({ ...p, client: e.target.value }))} />
+                                    </div>
+                                    <div className="flex gap-4">
+                                        <div className="space-y-2 flex-1">
+                                            <Label>開始日</Label>
+                                            <Popover>
+                                                <PopoverTrigger asChild>
+                                                    <Button variant="outline" className="w-full text-left font-normal">
+                                                        <Calendar className="mr-2 h-4 w-4" />
+                                                        {format(newProjectData.start, "PPP")}
+                                                    </Button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="p-0">
+                                                    <CalendarComponent mode="single" selected={newProjectData.start} onSelect={d => d && setNewProjectData(p => ({ ...p, start: d }))} />
+                                                </PopoverContent>
+                                            </Popover>
+                                        </div>
+                                        <div className="space-y-2 flex-1">
+                                            <Label>終了日</Label>
+                                            <Popover>
+                                                <PopoverTrigger asChild>
+                                                    <Button variant="outline" className="w-full text-left font-normal">
+                                                        <Calendar className="mr-2 h-4 w-4" />
+                                                        {format(newProjectData.end, "PPP")}
+                                                    </Button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="p-0">
+                                                    <CalendarComponent mode="single" selected={newProjectData.end} onSelect={d => d && setNewProjectData(p => ({ ...p, end: d }))} />
+                                                </PopoverContent>
+                                            </Popover>
+                                        </div>
+                                    </div>
+                                </div>
+                                <DialogFooter>
+                                    <Button onClick={handleCreateProject}>作成</Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
                     </div>
                 )}
             </div>
@@ -434,8 +549,13 @@ function GlobalTimeline({ projects }: { projects: ProjectSummary[] }) {
             <div className="bg-white dark:bg-card min-h-[400px]">
                 {projects.map(p => (
                     <div key={p.id} className="flex border-b h-12 items-center hover:bg-muted/5 relative">
-                        <div className="w-48 px-4 py-1 border-r shrink-0 sticky left-0 bg-background z-10 truncate text-sm font-medium" title={p.name}>
-                            {p.name}
+                        <div className="w-48 px-4 py-1 border-r shrink-0 sticky left-0 bg-background z-10 truncate text-sm font-medium flex items-center justify-between group/row" title={p.name}>
+                            <span className="truncate">{p.name}</span>
+                            {p.spreadsheetUrl && (
+                                <a href={p.spreadsheetUrl} target="_blank" rel="noopener noreferrer" className="text-green-600 hover:text-green-800 opacity-60 hover:opacity-100" title="案件シートを開く">
+                                    <FileJson className="h-4 w-4" />
+                                </a>
+                            )}
                         </div>
                         <div className="flex-1 relative h-full">
                             {/* Project Bar */}

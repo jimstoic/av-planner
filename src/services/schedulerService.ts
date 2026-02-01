@@ -10,6 +10,7 @@ export interface ProjectSummary {
     staff: Staff[];
     equipmentIds: string[];
     schedule: ScheduleItem[];
+    spreadsheetUrl?: string;
     fileId: string;
 }
 
@@ -70,6 +71,7 @@ export const schedulerService = {
                     staff: parsed.staff || [],
                     equipmentIds: parsed.selectedEquipmentIds || [],
                     schedule: parsed.schedule || [],
+                    spreadsheetUrl: parsed.spreadsheetUrl,
                     fileId: file.id
                 } as ProjectSummary;
 
