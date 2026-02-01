@@ -12,6 +12,8 @@ import { Loader2, Plus, Pencil, Trash2, Save, CloudUpload, Search, Monitor, Box 
 import { equipmentService } from '@/services/equipmentService';
 import { Equipment } from '@/types/equipment';
 import { initialEquipment } from '@/data/initialEquipment';
+import { getCategoryColor } from '@/constants/colors';
+import { Badge } from '@/components/ui/badge';
 
 
 export function EquipmentMasterView() {
@@ -187,9 +189,9 @@ export function EquipmentMasterView() {
                                     <TableCell className="font-medium">{item.name}</TableCell>
                                     <TableCell>{item.manufacturer}</TableCell>
                                     <TableCell>
-                                        <span className="px-2 py-1 rounded-full bg-slate-100 text-xs font-medium">
+                                        <Badge variant="outline" className={`px-2 py-1 rounded-full text-xs font-medium border ${getCategoryColor(item.majorCategory || 'other')}`}>
                                             {item.majorCategory}
-                                        </span>
+                                        </Badge>
                                     </TableCell>
                                     <TableCell className="text-center font-mono text-xs text-muted-foreground">
                                         {item.inputPortCount} In / {item.outputPortCount} Out
