@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Loader2, Plus, Pencil, Trash2, Save, CloudUpload, Search, Monitor, Box } from 'lucide-react';
 import { equipmentService } from '@/services/equipmentService';
 import { Equipment } from '@/types/equipment';
-import { Equipment } from '@/types/equipment';
+
 
 export function EquipmentMasterView() {
     const { data: session } = useSession();
