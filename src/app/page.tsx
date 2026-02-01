@@ -5,13 +5,24 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Plus, FileJson, LayoutDashboard, LogIn, Calendar, Box } from "lucide-react";
+import { Loader2, Plus, FileJson, LayoutDashboard, LogIn, Calendar, Box, Settings, LogOut, Moon, Sun, Monitor, User } from "lucide-react";
 import { driveService } from "@/services/driveService";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { useProjectStore } from "@/store/projectStore";
 import { TemplateWizard } from "@/modules/wizard/TemplateWizard";
 import { EquipmentMasterView } from "@/modules/library/EquipmentMasterView";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { signOut } from "next-auth/react";
+import { useTheme } from "next-themes";
 
 // App Version
 const APP_VERSION = 'Beta v0.1.0';
@@ -20,6 +31,7 @@ export default function LandingPage() {
     const { data: session, status } = useSession();
     const router = useRouter();
     const { loadProject, resetProject } = useProjectStore();
+    const { setTheme } = useTheme();
 
     // View State: 'dashboard' | 'open' | 'template' | 'library'
     const [view, setView] = useState<'dashboard' | 'open' | 'template' | 'library'>('dashboard');
@@ -165,14 +177,51 @@ export default function LandingPage() {
                     {APP_VERSION}
                 </Badge>
                 <div className="ml-auto flex items-center gap-4">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <img
-                            src={session?.user?.image || ''}
-                            alt={session?.user?.name || ''}
-                            className="h-8 w-8 rounded-full border"
-                        />
-                        <span className="hidden md:inline">{session?.user?.name}</span>
-                    </div>
+                    {status === 'authenticated' && (
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                                    <Avatar className="h-8 w-8">
+                                        <AvatarImage src={session?.user?.image || ''} alt={session?.user?.name || ''} />
+                                        <AvatarFallback>{session?.user?.name?.[0]}</AvatarFallback>
+                                    </Avatar>
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent className="w-56" align="end" forceMount>
+                                <DropdownMenuLabel className="font-normal">
+                                    <div className="flex flex-col space-y-1">
+                                        <p className="text-sm font-medium leading-none">{session?.user?.name}</p>
+                                        <p className="text-xs leading-none text-muted-foreground">
+                                            {session?.user?.email}
+                                        </p>
+                                    </div>
+                                </DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => { }}>
+                                    <Settings className="mr-2 h-4 w-4" />
+                                    <span>Settings (Coming Soon)</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => setTheme("light")}>
+                                    <Sun className="mr-2 h-4 w-4" />
+                                    <span>Light Mode</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setTheme("dark")}>
+                                    <Moon className="mr-2 h-4 w-4" />
+                                    <span>Dark Mode</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setTheme("system")}>
+                                    <Monitor className="mr-2 h-4 w-4" />
+                                    <span>System</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => signOut()}>
+                                    <LogOut className="mr-2 h-4 w-4" />
+                                    <span>Log out</span>
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    )}
                 </div>
             </header>
 
