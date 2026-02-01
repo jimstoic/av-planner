@@ -29,7 +29,7 @@ export function StaffManager() {
             addStaff({
                 name: editingStaff.name,
                 role: editingStaff.role || 'Staff',
-                dayRate: Number(editingStaff.dayRate) || 0,
+                dayRate: editingStaff.dayRate || 0, // Hidden in UI, default to 0 or existing
                 daysAssigned: 0,
                 email: editingStaff.email || ''
             });
@@ -47,7 +47,7 @@ export function StaffManager() {
         setEditingStaff({
             name: '',
             role: 'Operator',
-            dayRate: 35000,
+            dayRate: 0,
             email: ''
         });
         setIsDialogOpen(true);
@@ -127,7 +127,7 @@ export function StaffManager() {
                         <TableRow className="bg-muted/50">
                             <TableHead>名前</TableHead>
                             <TableHead>役割</TableHead>
-                            <TableHead className="text-right">日当 (目安)</TableHead>
+                            {/* <TableHead className="text-right">日当 (目安)</TableHead> */}
                             <TableHead className="w-[100px]"></TableHead>
                         </TableRow>
                     </TableHeader>
@@ -143,7 +143,7 @@ export function StaffManager() {
                                 <TableRow key={s.id}>
                                     <TableCell className="font-medium">{s.name}</TableCell>
                                     <TableCell>{s.role}</TableCell>
-                                    <TableCell className="text-right">¥{s.dayRate?.toLocaleString()}</TableCell>
+                                    {/* <TableCell className="text-right">¥{s.dayRate?.toLocaleString()}</TableCell> */}
                                     <TableCell className="flex justify-end gap-2">
                                         <Button variant="ghost" size="icon" onClick={() => handleEdit(s)}>
                                             <Pencil className="h-4 w-4 text-muted-foreground" />
@@ -173,10 +173,10 @@ export function StaffManager() {
                             <Label htmlFor="role" className="text-right">役割</Label>
                             <Input id="role" value={editingStaff?.role || ''} onChange={(e) => setEditingStaff(p => ({ ...p, role: e.target.value }))} className="col-span-3" placeholder="Dir, Cam, Sound..." />
                         </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
+                        {/* <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="rate" className="text-right">日当</Label>
                             <Input id="rate" type="number" value={editingStaff?.dayRate || ''} onChange={(e) => setEditingStaff(p => ({ ...p, dayRate: Number(e.target.value) }))} className="col-span-3" />
-                        </div>
+                        </div> */}
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="email" className="text-right">Email</Label>
                             <Input id="email" type="email" value={editingStaff?.email || ''} onChange={(e) => setEditingStaff(p => ({ ...p, email: e.target.value }))} className="col-span-3" />

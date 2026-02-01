@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { driveService } from "@/services/driveService";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
+import { StaffManager } from "./StaffManager";
 
 export function ProjectInfoView() {
     const {
@@ -352,13 +353,8 @@ export function ProjectInfoView() {
                                 </div>
                             </div>
 
-                            <div className="space-y-4 p-6 border rounded-lg bg-card shadow-sm opacity-50 pointer-events-none">
-                                <h3 className="font-semibold text-lg flex items-center gap-2">
-                                    チームメンバー (Coming Soon)
-                                </h3>
-                                <p className="text-sm text-muted-foreground">
-                                    チームメンバーの招待機能は開発中です。現在はGoogle Driveの共有権限にて管理してください。
-                                </p>
+                            <div className="space-y-4 p-6 border rounded-lg bg-card shadow-sm">
+                                <StaffManager />
                             </div>
                         </div>
                     </div>
