@@ -3,6 +3,7 @@
 import { useSession, signIn } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Plus, FileJson, LayoutDashboard, LogIn, Calendar, Box, Settings, LogOut, Moon, Sun, Monitor, User } from "lucide-react";
@@ -25,7 +26,7 @@ import { signOut } from "next-auth/react";
 import { useTheme } from "next-themes";
 
 // App Version
-const APP_VERSION = 'Beta v0.1.0';
+const APP_VERSION = `v0.1.${process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ? process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA.substring(0, 7) : '0'}`;
 
 export default function LandingPage() {
     const { data: session, status } = useSession();
@@ -171,9 +172,11 @@ export default function LandingPage() {
         <div className="min-h-screen bg-muted/10">
             {/* Dashboard Header */}
             <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur px-6 shadow-sm">
-                <LayoutDashboard className="h-6 w-6 text-primary" />
-                <h1 className="text-lg font-bold">Dashboard</h1>
-                <Badge variant="outline" className="ml-2 text-xs font-normal text-muted-foreground bg-muted/50">
+                <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                    <LayoutDashboard className="h-6 w-6 text-primary" />
+                    <h1 className="text-lg font-bold">Dashboard</h1>
+                </Link>
+                <Badge variant="outline" className="ml-2 text-xs font-normal text-muted-foreground bg-muted/50 font-mono">
                     {APP_VERSION}
                 </Badge>
                 <div className="ml-auto flex items-center gap-4">
