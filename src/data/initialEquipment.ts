@@ -803,18 +803,72 @@ const rawData = [
     }
 ];
 
-export const initialEquipment: Equipment[] = rawData.map(item => ({
-    id: item.id,
-    name: item.name,
-    majorCategory: 'other',
-    subCategory: 'other',
-    manufacturer: item.category, // Map input category to manufacturer for now to preserve it
-    description: item.notes + (item.location ? ` [Location: ${item.location}]` : ""),
-    stockQuantity: item.stock,
-    inputPortCount: 0,
-    outputPortCount: 0,
-    dayRate: 0,
-    imageUrl: "",
-    powerConsumption: 0,
-    weight: 0
-}));
+const inferCategory = (name: string, rawCategory: string): { major: EquipmentCategory, sub: EquipmentSubCategory } => {
+    const n = name.toLowerCase();
+    const c = rawCategory.toLowerCase();
+
+    if (n.includes('camera') || n.includes('カメラ') || c.includes('カメラ')) return { major: 'video', sub: 'camera' };
+    if (n.includes('switcher') || n.includes('スイッチャー') || c.includes('スイッチャー')) return { major: 'video', sub: 'switcher' };
+    if (n.includes('monitor') || n.includes('モニター') || c.includes('モニター')) return { major: 'video', sub: 'display' };
+    if (n.includes('converter') || n.includes('コンバーター') || c.includes('ビデオキャプチャ')) return { major: 'video', sub: 'converter' };
+    if (n.includes('cable') || n.includes('ケーブル') || c.includes('ケーブル')) return { major: 'video', sub: 'cable' };
+
+    if (n.includes('mic') || n.includes('マイク') || c.includes('マイク')) return { major: 'audio', sub: 'microphone' };
+    if (n.includes('mixer') || n.includes('ミキサー') || c.includes('ミキサー')) return { major: 'audio', sub: 'mixer' };
+    if (n.includes('speaker') || n.includes('スピーカー') || c.includes('スピーカー')) return { major: 'audio', sub: 'speaker' };
+
+    if (n.includes('pc') || n.includes('mac') || c.includes('pc')) return { major: 'control', sub: 'pc' };
+    if (n.includes('network') || n.includes('router') || c.includes('ペップリンク') || n.includes('peplink')) return { major: 'control', sub: 'network' };
+
+    if (n.includes('generator') || n.includes('電源') || c.includes('電源')) return { major: 'power', sub: 'distro' };
+    if (n.includes('tripod') || n.includes('三脚') || c.includes('三脚')) return { major: 'video', sub: 'accessory' };
+
+    return { major: 'other', sub: 'other' };
+};
+
+const inferManufacturer = (name: string, rawCategory: string): string => {
+    const text = (name + " " + rawCategory).toLowerCase();
+
+    if (text.includes('roland')) return 'Roland';
+    if (text.includes('sony')) return 'SONY';
+    if (text.includes('panasonic')) return 'Panasonic';
+    if (text.includes('canon')) return 'Canon';
+    if (text.includes('blackmagic') || text.includes('bmd') || text.includes('atem')) return 'Blackmagic Design';
+    if (text.includes('jvc')) return 'JVC';
+    if (text.includes('yamaha')) return 'Yamaha';
+    if (text.includes('shure')) return 'Shure';
+    if (text.includes('sennheiser')) return 'Sennheiser';
+    if (text.includes('smallrig')) return 'SmallRig';
+    if (text.includes('libec')) return 'Libec';
+    if (text.includes('peplink')) return 'Peplink';
+    if (text.includes('radial')) return 'Radial';
+
+    // If category looks like a manufacturer (no japanese characters, short/medium length), use it
+    if (!rawCategory.match(/[^\x01-\x7E]/) && rawCategory.length > 2 && rawCategory.length < 20) {
+        return rawCategory;
+    }
+
+    return "";
+};
+
+export const initialEquipment: Equipment[] = rawData.map(item => {
+    const { major, sub } = inferCategory(item.name, item.category);
+    const manufacturer = inferManufacturer(item.name, item.category);
+
+    return {
+        id: item.id,
+        name: item.name,
+        majorCategory: major,
+        subCategory: sub,
+        manufacturer: manufacturer,
+        description: item.notes + (item.location ? ` [Location: ${item.location}]` : ""),
+        stockQuantity: item.stock,
+        inputPortCount: 0,
+        outputPortCount: 0,
+        dayRate: 0,
+        imageUrl: "",
+        powerConsumption: 0,
+        weight: 0,
+        category: item.category // Keep original category in legacy field if needed
+    };
+});
