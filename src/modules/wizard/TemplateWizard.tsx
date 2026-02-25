@@ -63,6 +63,15 @@ export function TemplateWizard() {
             staff: [],
             schedule: [],
             additionalCosts: [],
+            members: [],
+            artboard: {
+                enabled: false,
+                size: 'A4',
+                orientation: 'landscape'
+            },
+            discountAmount: 0,
+            discountType: 'percent',
+            discountIncludedCategories: ['staff', 'equipment', 'production'],
             editingEdgeId: null
         });
 

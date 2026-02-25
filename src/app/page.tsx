@@ -109,6 +109,11 @@ export default function LandingPage() {
                 driveFolderName: '',
                 driveFileId: fileId,
                 id: data.id || 'imported-project',
+                members: data.members || [],
+                artboard: data.artboard || { enabled: false, size: 'A4', orientation: 'landscape' },
+                discountAmount: data.discountAmount || 0,
+                discountType: data.discountType || 'percent',
+                discountIncludedCategories: data.discountIncludedCategories || ['staff', 'equipment', 'production'],
                 editingEdgeId: null
             });
 
