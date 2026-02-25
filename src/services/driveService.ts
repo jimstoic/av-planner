@@ -30,6 +30,38 @@ export const driveService = {
     },
 
     /**
+     * Fetch file content with retry logic
+     */
+    async getFileContent(accessToken: string, fileId: string, retries: number = 2) {
+        const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`;
+
+        for (let i = 0; i <= retries; i++) {
+            try {
+                const res = await fetch(url, {
+                    headers: {
+                        Authorization: `Bearer ${accessToken}`,
+                    },
+                });
+
+                if (!res.ok) {
+                    if (res.status === 403 || res.status === 429 || res.status >= 500) {
+                        if (i < retries) {
+                            await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+                            continue;
+                        }
+                    }
+                    throw new Error(`Drive API Error: ${res.status} ${res.statusText}`);
+                }
+
+                return await res.json();
+            } catch (error) {
+                if (i === retries) throw error;
+                await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+            }
+        }
+    },
+
+    /**
      * Create or Update a file (Simple upload for JSON)
      */
     async saveFile(accessToken: string, name: string, content: object, parentId?: string, fileId?: string) {

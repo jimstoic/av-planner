@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { Node, Edge, Connection, addEdge, OnNodesChange, OnEdgesChange, applyNodeChanges, applyEdgeChanges } from '@xyflow/react';
+import { recursiveDateParse } from '@/lib/utils';
 
 export interface Staff {
     id: string;
@@ -46,6 +47,18 @@ export interface ProjectState {
     }[];
     staff: Staff[];
     schedule: ScheduleItem[];
+    members: string[]; // Assigned user emails
+    artboard: {
+        enabled: boolean;
+        size: 'A4' | 'A3';
+        orientation: 'portrait' | 'landscape';
+    };
+    // Quotation Settings
+    taxRateOverride?: number;
+    discountAmount: number;
+    discountType: 'flat' | 'percent';
+    discountIncludedCategories: string[]; // ['staff', 'equipment', 'production', 'other']
+    remarks?: string;
     // UI State
     editingEdgeId: string | null;
 }
@@ -63,6 +76,7 @@ interface ProjectActions {
     updateMetadata: (data: Partial<ProjectState>) => void;
     updateEdgeData: (id: string, data: Record<string, unknown>) => void;
     setEditingEdgeId: (id: string | null) => void;
+    updateQuotationSettings: (settings: Partial<{ taxRateOverride: number, discountAmount: number, discountType: 'flat' | 'percent', discountIncludedCategories: string[], remarks: string }>) => void;
 
     // Cost Actions
     setAdditionalCosts: (costs: ProjectState['additionalCosts']) => void;
@@ -108,6 +122,15 @@ const initialState: ProjectState = {
     additionalCosts: [],
     staff: [],
     schedule: [],
+    members: [],
+    artboard: {
+        enabled: false,
+        size: 'A4',
+        orientation: 'landscape',
+    },
+    discountAmount: 0,
+    discountType: 'percent',
+    discountIncludedCategories: ['staff', 'equipment', 'production'], // Default to 1-3
     editingEdgeId: null,
 };
 
@@ -117,24 +140,6 @@ export const useProjectStore = create<ProjectState & ProjectActions>((set, get) 
     setEditingEdgeId: (id) => set({ editingEdgeId: id }),
 
     loadProject: (state) => {
-        // Ensure dates are parsed back to Date objects if they came from JSON
-        const recursiveDateParse = (obj: unknown): unknown => {
-            if (typeof obj === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(obj)) {
-                return new Date(obj);
-            }
-            if (Array.isArray(obj)) {
-                return obj.map(recursiveDateParse);
-            }
-            if (typeof obj === 'object' && obj !== null) {
-                const result: Record<string, unknown> = {};
-                for (const key in obj) {
-                    result[key] = recursiveDateParse((obj as Record<string, unknown>)[key]);
-                }
-                return result;
-            }
-            return obj;
-        }
-
         const parsedState = recursiveDateParse(state) as ProjectState;
 
         // Migration Logic: Ensure all edges are 'cable' type
@@ -149,6 +154,13 @@ export const useProjectStore = create<ProjectState & ProjectActions>((set, get) 
             }));
         }
 
+        // Initialize artboard and members if missing
+        parsedState.artboard = parsedState.artboard || initialState.artboard;
+        parsedState.members = parsedState.members || [];
+        parsedState.discountAmount = parsedState.discountAmount || 0;
+        parsedState.discountType = parsedState.discountType || 'percent';
+        parsedState.discountIncludedCategories = parsedState.discountIncludedCategories || ['staff', 'equipment', 'production'];
+
         set(parsedState);
     },
 
@@ -159,6 +171,8 @@ export const useProjectStore = create<ProjectState & ProjectActions>((set, get) 
     setDriveFolderId: (id) => set({ driveFolderId: id }),
     setDriveFileId: (id) => set({ driveFileId: id }),
     setDriveFolderName: (name) => set({ driveFolderName: name }),
+
+    updateQuotationSettings: (settings) => set((state) => ({ ...state, ...settings })),
 
     updateMetadata: (data) => set((state) => {
         const newState = { ...state, ...data };

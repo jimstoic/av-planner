@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Loader2, Plus, Pencil, Trash2, Save, CloudUpload, Search, Monitor, Box } from 'lucide-react';
+import { Loader2, Plus, Pencil, Trash2, Save, CloudUpload, Search, Monitor, Box, Download, Upload } from 'lucide-react';
 import { equipmentService } from '@/services/equipmentService';
 import { Equipment } from '@/types/equipment';
 import { initialEquipment } from '@/data/initialEquipment';
@@ -63,6 +63,41 @@ export function EquipmentMasterView() {
         }
     };
 
+    const handleExportJSON = () => {
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(equipmentList, null, 2));
+        const downloadAnchorNode = document.createElement('a');
+        downloadAnchorNode.setAttribute("href", dataStr);
+        downloadAnchorNode.setAttribute("download", "equipment_master_backup.json");
+        document.body.appendChild(downloadAnchorNode);
+        downloadAnchorNode.click();
+        downloadAnchorNode.remove();
+        toast.success("マスターデータをJSON形式で書き出しました");
+    };
+
+    const handleImportJSON = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const json = JSON.parse(event.target?.result as string);
+                if (Array.isArray(json)) {
+                    setEquipmentList(json);
+                    setIsDirty(true);
+                    toast.success(`JSONから ${json.length} 件のデータを取り込みました（保存ボタンで確定してください）`);
+                } else {
+                    toast.error("無効なJSON形式です。配列形式である必要があります。");
+                }
+            } catch (err) {
+                toast.error("JSONのパースに失敗しました");
+            }
+        };
+        reader.readAsText(file);
+    };
+
+    const [isDirty, setIsDirty] = useState(false);
+
     const handleImportSeed = async () => {
         if (!confirm("注意：Excelから取り込んだ初期データで現在のリストを完全に上書きしてもよろしいですか？\n※既存のデータは削除されます。")) return;
 
@@ -71,6 +106,7 @@ export function EquipmentMasterView() {
             // Use locally imported initialEquipment
             const seedData = initialEquipment;
             setEquipmentList(seedData);
+            setIsDirty(true);
 
             if (session?.accessToken) {
                 await equipmentService.saveMasterEquipmentList(session.accessToken, seedData);
@@ -138,12 +174,30 @@ export function EquipmentMasterView() {
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
-                <Button onClick={() => {
-                    setEditingItem({});
-                    setIsDialogOpen(true);
-                }}>
-                    <Plus className="mr-2 h-4 w-4" /> 新規登録
-                </Button>
+                <div className="flex gap-2">
+                    <div className="flex bg-muted p-1 rounded-lg gap-1 border">
+                        <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={handleExportJSON}>
+                            <Download className="mr-2 h-3 w-3" /> Export JSON
+                        </Button>
+                        <div className="relative">
+                            <input
+                                type="file"
+                                accept=".json"
+                                className="absolute inset-0 opacity-0 cursor-pointer"
+                                onChange={handleImportJSON}
+                            />
+                            <Button variant="ghost" size="sm" className="h-8 text-xs">
+                                <Upload className="mr-2 h-3 w-3" /> Import JSON
+                            </Button>
+                        </div>
+                    </div>
+                    <Button onClick={() => {
+                        setEditingItem({});
+                        setIsDialogOpen(true);
+                    }}>
+                        <Plus className="mr-2 h-4 w-4" /> 新規登録
+                    </Button>
+                </div>
             </div>
 
             <div className="border rounded-md overflow-hidden bg-white dark:bg-card shadow-sm">

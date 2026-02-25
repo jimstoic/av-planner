@@ -24,6 +24,8 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { signOut } from "next-auth/react";
 import { useTheme } from "next-themes";
+import { SettingsView } from "@/modules/settings/SettingsView";
+import { useSettingsStore } from "@/store/settingsStore";
 
 // App Version
 const APP_VERSION = `v0.1.${process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ? process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA.substring(0, 7) : '0'}`;
@@ -34,12 +36,13 @@ export default function LandingPage() {
     const { loadProject, resetProject } = useProjectStore();
     const { setTheme } = useTheme();
 
-    // View State: 'dashboard' | 'open' | 'template' | 'library'
-    const [view, setView] = useState<'dashboard' | 'open' | 'template' | 'library'>('dashboard');
+    // View State: 'dashboard' | 'open' | 'template' | 'library' | 'settings'
+    const [view, setView] = useState<'dashboard' | 'open' | 'template' | 'library' | 'settings'>('dashboard');
 
     // State for Drive Files
     const [driveFiles, setDriveFiles] = useState<any[]>([]);
     const [isLoadingFiles, setIsLoadingFiles] = useState(false);
+    const [filterMode, setFilterMode] = useState<'all' | 'mine'>('all');
 
     // Filter/Browser State
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -66,8 +69,20 @@ export default function LandingPage() {
         try {
             const query = "mimeType = 'application/json' and trashed = false";
             const data = await driveService.searchFiles(session!.accessToken!, query);
+
             if (data.files) {
-                setDriveFiles(data.files);
+                // Fetch full content to check members if in 'mine' mode or to show detailed info
+                // Optimization: In a real app we'd want indexed search, but for Drive we fetch summaries.
+                const allProjects = await Promise.all((data.files as any[]).map(async (f) => {
+                    try {
+                        const content = await driveService.getFileContent(session!.accessToken!, f.id);
+                        return { ...f, members: content.members || [] };
+                    } catch {
+                        return { ...f, members: [] };
+                    }
+                }));
+
+                setDriveFiles(allProjects);
             }
         } catch (error) {
             console.error("Failed to fetch drive files:", error);
@@ -85,19 +100,7 @@ export default function LandingPage() {
     const handleLoadFile = async (fileId: string, fileName: string) => {
         const toastId = toast.loading(`${fileName} を読み込み中...`);
         try {
-            const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
-                headers: { Authorization: `Bearer ${session?.accessToken}` }
-            });
-
-            if (!res.ok) throw new Error("Failed to download file");
-
-            const data = await res.json();
-
-            // Validate if it's a valid project file (basic check)
-            if (!data.id && !data.nodes) {
-                toast.error("無効なプロジェクトファイルです", { id: toastId });
-                return;
-            }
+            const data = await driveService.getFileContent(session!.accessToken!, fileId);
 
             // Load into Store
             loadProject({
@@ -200,9 +203,9 @@ export default function LandingPage() {
                                     </div>
                                 </DropdownMenuLabel>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => { }}>
+                                <DropdownMenuItem onClick={() => setView('settings')}>
                                     <Settings className="mr-2 h-4 w-4" />
-                                    <span>Settings (Coming Soon)</span>
+                                    <span>Settings</span>
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => setTheme("light")}>
@@ -313,6 +316,23 @@ export default function LandingPage() {
 
                             <div className="flex items-center gap-2 bg-background p-1 rounded-lg border">
                                 <Button
+                                    variant={filterMode === 'all' ? 'secondary' : 'ghost'}
+                                    size="sm"
+                                    className="h-8 text-xs px-3"
+                                    onClick={() => setFilterMode('all')}
+                                >
+                                    すべて
+                                </Button>
+                                <Button
+                                    variant={filterMode === 'mine' ? 'secondary' : 'ghost'}
+                                    size="sm"
+                                    className="h-8 text-xs px-3"
+                                    onClick={() => setFilterMode('mine')}
+                                >
+                                    自分のみ
+                                </Button>
+                                <div className="w-px h-4 bg-border mx-1" />
+                                <Button
                                     variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
                                     size="icon"
                                     className="h-8 w-8"
@@ -351,55 +371,57 @@ export default function LandingPage() {
                                 ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
                                 : "flex flex-col gap-2"
                             }>
-                                {sortedFiles.map((file) => (
-                                    viewMode === 'grid' ? (
-                                        <Card
-                                            key={file.id}
-                                            className="group cursor-pointer hover:shadow-md transition-all border-muted/60 hover:border-primary/50"
-                                            onClick={() => handleLoadFile(file.id, file.name)}
-                                        >
-                                            <CardHeader className="pb-3">
-                                                <div className="flex justify-between items-start gap-2">
-                                                    <CardTitle className="text-base font-semibold truncate leading-tight">
-                                                        {file.name.replace('.json', '')}
-                                                    </CardTitle>
-                                                    <FileJson className="h-4 w-4 text-muted-foreground shrink-0" />
+                                {sortedFiles
+                                    .filter(f => filterMode === 'all' || (f.members && f.members.includes(session?.user?.email)))
+                                    .map((file) => (
+                                        viewMode === 'grid' ? (
+                                            <Card
+                                                key={file.id}
+                                                className="group cursor-pointer hover:shadow-md transition-all border-muted/60 hover:border-primary/50"
+                                                onClick={() => handleLoadFile(file.id, file.name)}
+                                            >
+                                                <CardHeader className="pb-3">
+                                                    <div className="flex justify-between items-start gap-2">
+                                                        <CardTitle className="text-base font-semibold truncate leading-tight">
+                                                            {file.name.replace('.json', '')}
+                                                        </CardTitle>
+                                                        <FileJson className="h-4 w-4 text-muted-foreground shrink-0" />
+                                                    </div>
+                                                    <CardDescription className="text-xs truncate">
+                                                        ID: {file.id}
+                                                    </CardDescription>
+                                                </CardHeader>
+                                                <CardFooter className="pt-0 text-xs text-muted-foreground flex justify-between items-center">
+                                                    <div className="flex flex-col">
+                                                        <span>{file.createdTime ? new Date(file.createdTime).toLocaleDateString() : '-'}</span>
+                                                    </div>
+                                                    <span className="opacity-0 group-hover:opacity-100 transition-opacity text-primary font-medium">開く →</span>
+                                                </CardFooter>
+                                            </Card>
+                                        ) : (
+                                            <div
+                                                key={file.id}
+                                                className="flex items-center justify-between p-4 bg-card border rounded-lg hover:border-primary/50 cursor-pointer group transition-all"
+                                                onClick={() => handleLoadFile(file.id, file.name)}
+                                            >
+                                                <div className="flex items-center gap-4">
+                                                    <div className="bg-primary/10 p-2 rounded-md">
+                                                        <FileJson className="h-5 w-5 text-primary" />
+                                                    </div>
+                                                    <div>
+                                                        <div className="font-semibold">{file.name.replace('.json', '')}</div>
+                                                        <div className="text-xs text-muted-foreground">ID: {file.id}</div>
+                                                    </div>
                                                 </div>
-                                                <CardDescription className="text-xs truncate">
-                                                    ID: {file.id}
-                                                </CardDescription>
-                                            </CardHeader>
-                                            <CardFooter className="pt-0 text-xs text-muted-foreground flex justify-between items-center">
-                                                <div className="flex flex-col">
+                                                <div className="flex items-center gap-6 text-sm text-muted-foreground">
                                                     <span>{file.createdTime ? new Date(file.createdTime).toLocaleDateString() : '-'}</span>
-                                                </div>
-                                                <span className="opacity-0 group-hover:opacity-100 transition-opacity text-primary font-medium">開く →</span>
-                                            </CardFooter>
-                                        </Card>
-                                    ) : (
-                                        <div
-                                            key={file.id}
-                                            className="flex items-center justify-between p-4 bg-card border rounded-lg hover:border-primary/50 cursor-pointer group transition-all"
-                                            onClick={() => handleLoadFile(file.id, file.name)}
-                                        >
-                                            <div className="flex items-center gap-4">
-                                                <div className="bg-primary/10 p-2 rounded-md">
-                                                    <FileJson className="h-5 w-5 text-primary" />
-                                                </div>
-                                                <div>
-                                                    <div className="font-semibold">{file.name.replace('.json', '')}</div>
-                                                    <div className="text-xs text-muted-foreground">ID: {file.id}</div>
+                                                    <Button size="sm" variant="ghost" className="opacity-0 group-hover:opacity-100 translate-x-2 group-hover:translate-x-0 transition-all">
+                                                        開く
+                                                    </Button>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-6 text-sm text-muted-foreground">
-                                                <span>{file.createdTime ? new Date(file.createdTime).toLocaleDateString() : '-'}</span>
-                                                <Button size="sm" variant="ghost" className="opacity-0 group-hover:opacity-100 translate-x-2 group-hover:translate-x-0 transition-all">
-                                                    開く
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    )
-                                ))}
+                                        )
+                                    ))}
                             </div>
                         ) : (
                             <div className="text-center py-20 border-2 border-dashed rounded-xl bg-muted/5">
@@ -437,6 +459,17 @@ export default function LandingPage() {
                             </Button>
                         </div>
                         <EquipmentMasterView />
+                    </div>
+                )}
+
+                {view === 'settings' && (
+                    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                        <div className="flex items-center gap-4 border-b pb-4">
+                            <Button variant="ghost" onClick={() => setView('dashboard')}>
+                                ← 戻る
+                            </Button>
+                        </div>
+                        <SettingsView />
                     </div>
                 )}
             </main>

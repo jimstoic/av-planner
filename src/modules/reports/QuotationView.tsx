@@ -8,14 +8,22 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Printer } from 'lucide-react';
+import { Printer, Check, Download, Settings2, Percent, Calculator, Info, FileText } from 'lucide-react';
+import { toPng } from 'html-to-image';
+import { jsPDF } from 'jspdf';
+import { useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { StaffManager } from '@/modules/project/StaffManager';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { Users } from 'lucide-react';
+import { useSettingsStore } from '@/store/settingsStore';
+import { toast } from 'sonner';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Textarea } from '@/components/ui/textarea';
 
 export function QuotationView() {
     const {
@@ -27,11 +35,19 @@ export function QuotationView() {
         projectName,
         clientName,
         venue,
-        additionalCosts
+        additionalCosts,
+        taxRateOverride,
+        discountAmount,
+        discountType,
+        discountIncludedCategories,
+        remarks,
+        updateQuotationSettings
     } = useProjectStore();
 
     const { equipment } = useEquipmentStore();
+    const { taxRate, currency } = useSettingsStore();
     const [isInvoiceMode, setIsInvoiceMode] = useState(false);
+    const contentRef = useRef<HTMLDivElement>(null);
 
     // Calculate duration
     const duration = useMemo(() => {
@@ -86,10 +102,114 @@ export function QuotationView() {
     }));
     const otherSubtotal = otherItems.reduce((acc, item) => acc + item.total, 0);
 
+    // --- Advanced Calculations ---
+    const primarySubtotal = useMemo(() => {
+        let sum = 0;
+        if (discountIncludedCategories.includes('staff')) sum += staffSubtotal;
+        if (discountIncludedCategories.includes('equipment')) sum += equipmentSubtotal;
+        if (discountIncludedCategories.includes('production')) sum += productionSubtotal;
+        if (discountIncludedCategories.includes('other')) sum += otherSubtotal;
+        return sum;
+    }, [discountIncludedCategories, staffSubtotal, equipmentSubtotal, productionSubtotal, otherSubtotal]);
 
-    const totalEstimatedCost = staffSubtotal + equipmentSubtotal + productionSubtotal + otherSubtotal;
-    const tax = Math.floor(totalEstimatedCost * 0.1);
-    const grandTotal = totalEstimatedCost + tax;
+    const nonDiscountedBasis = useMemo(() => {
+        let sum = 0;
+        if (!discountIncludedCategories.includes('staff')) sum += staffSubtotal;
+        if (!discountIncludedCategories.includes('equipment')) sum += equipmentSubtotal;
+        if (!discountIncludedCategories.includes('production')) sum += productionSubtotal;
+        if (!discountIncludedCategories.includes('other')) sum += otherSubtotal;
+        return sum;
+    }, [discountIncludedCategories, staffSubtotal, equipmentSubtotal, productionSubtotal, otherSubtotal]);
+
+    const discountValue = useMemo(() => {
+        if (discountType === 'percent') {
+            return Math.floor(primarySubtotal * (discountAmount / 100));
+        }
+        return discountAmount;
+    }, [primarySubtotal, discountAmount, discountType]);
+
+    const discountedSubtotal = primarySubtotal - discountValue;
+    const totalBeforeTax = discountedSubtotal + nonDiscountedBasis;
+
+    // Use override or global setting
+    const activeTaxRate = taxRateOverride !== undefined ? taxRateOverride : taxRate;
+    const tax = Math.floor(totalBeforeTax * (activeTaxRate / 100));
+    const grandTotal = totalBeforeTax + tax;
+
+    const handleExportCSV = () => {
+        try {
+            const rows = [
+                ['Category', 'Name', 'Manufacturer/Role', 'Unit Price', 'Quantity', 'Days', 'Total'],
+                ...staffItems.map(s => ['Personnel', s.name, s.role, s.dayRate, 1, s.days, s.total]),
+                ...equipmentItems.map(e => ['Equipment', e.name, e.manufacturer, e.dayRate, e.quantity, e.days, e.total]),
+                ...productionItems.map(p => ['Production', p.name, '-', p.unitPrice, p.quantity, 1, p.total]),
+                ...otherItems.map(o => ['Other', o.name, '-', o.unitPrice, o.quantity, 1, o.total]),
+                [],
+                ['Subtotal (Gross Basis)', '', '', '', '', '', primarySubtotal],
+                [`Discount (${discountType === 'percent' ? discountAmount + '%' : 'Flat'})`, '', '', '', '', '', -discountValue],
+                ['Other (Non-Discounted)', '', '', '', '', '', nonDiscountedBasis],
+                ['Total (Net)', '', '', '', '', '', totalBeforeTax],
+                [`Tax (${activeTaxRate}%)`, '', '', '', '', '', tax],
+                ['Grand Total', '', '', '', '', '', grandTotal]
+            ];
+
+            const csvContent = "data:text/csv;charset=utf-8,"
+                + rows.map(e => e.join(",")).join("\n");
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `${projectName}_quotation.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            toast.success("CSVを書き出しました");
+        } catch (e) {
+            console.error(e);
+            toast.error("CSV書き出しに失敗しました");
+        }
+    };
+
+    const handleExportPDF = async () => {
+        if (!contentRef.current) return;
+        const toastId = toast.loading("高品質PDFを生成中...");
+
+        try {
+            // High-resolution capture with fixed width to prevent layout shifts
+            const dataUrl = await toPng(contentRef.current, {
+                pixelRatio: 2,
+                backgroundColor: '#ffffff',
+                canvasWidth: 1100, // Force a consistent width for the capture
+                canvasHeight: (contentRef.current.scrollHeight * (1100 / contentRef.current.offsetWidth)),
+                style: {
+                    margin: '0',
+                    padding: '0',
+                    boxShadow: 'none',
+                    borderRadius: '0',
+                }
+            });
+
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
+
+            const margin = 10;
+            const pdfWidth = pageWidth - (margin * 2);
+
+            // Calculate height in PDF units keeping aspect ratio
+            const imgProps = pdf.getImageProperties(dataUrl);
+            const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+            // Single page scale-to-fit or natural height
+            pdf.addImage(dataUrl, 'PNG', margin, margin, pdfWidth, Math.min(pdfHeight, pageHeight - (margin * 2)));
+            pdf.save(`${projectName}_${isInvoiceMode ? '請求書' : '見積書'}.pdf`);
+
+            toast.success("PDFを保存しました", { id: toastId });
+        } catch (error) {
+            console.error(error);
+            toast.error("PDFの生成に失敗しました", { id: toastId });
+        }
+    };
 
     const themeColor = isInvoiceMode ? "text-emerald-600 border-emerald-500" : "text-blue-600 border-blue-500";
     const highlightColor = isInvoiceMode ? "bg-emerald-600" : "bg-blue-600";
@@ -111,11 +231,120 @@ export function QuotationView() {
                         <div className="flex items-center space-x-2 bg-muted p-2 rounded-lg">
                             <Switch id="mode-toggle" checked={isInvoiceMode} onCheckedChange={setIsInvoiceMode} />
                             <Label htmlFor="mode-toggle" className="cursor-pointer font-medium">
-                                {isInvoiceMode ? '請求モード (Invoice)' : '見積モード (Quote)'}
+                                {isInvoiceMode ? '請求モード' : '見積モード'}
                             </Label>
                         </div>
+
+                        {/* Advanced Settings Popover */}
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button variant="outline" size="icon" title="Document Settings">
+                                    <Settings2 className="h-4 w-4" />
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-80 p-4">
+                                <div className="space-y-4 text-sm">
+                                    <h4 className="font-bold flex items-center gap-2">
+                                        <Settings2 className="w-4 h-4" /> 個別設定 (Project Specific)
+                                    </h4>
+
+                                    <div className="space-y-2">
+                                        <Label className="text-xs">消費税率上書き (%)</Label>
+                                        <div className="flex gap-2">
+                                            <Input
+                                                type="number"
+                                                placeholder={taxRate.toString()}
+                                                value={taxRateOverride ?? ''}
+                                                onChange={(e) => updateQuotationSettings({
+                                                    taxRateOverride: e.target.value === '' ? undefined : Number(e.target.value)
+                                                })}
+                                                className="h-8"
+                                            />
+                                            {taxRateOverride !== undefined && (
+                                                <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => updateQuotationSettings({ taxRateOverride: undefined })}>
+                                                    リセット
+                                                </Button>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <Separator />
+
+                                    <div className="space-y-2">
+                                        <Label className="text-xs">割引対象の項目を選択</Label>
+                                        <div className="grid grid-cols-2 gap-2 mt-1">
+                                            {[
+                                                { id: 'staff', label: '人件費' },
+                                                { id: 'equipment', label: '機材費' },
+                                                { id: 'production', label: '制作費' },
+                                                { id: 'other', label: 'その他' }
+                                            ].map((cat) => (
+                                                <div key={cat.id} className="flex items-center space-x-2">
+                                                    <Checkbox
+                                                        id={`cat-${cat.id}`}
+                                                        checked={discountIncludedCategories.includes(cat.id)}
+                                                        onCheckedChange={(checked) => {
+                                                            const newCats = checked
+                                                                ? [...discountIncludedCategories, cat.id]
+                                                                : discountIncludedCategories.filter(c => c !== cat.id);
+                                                            updateQuotationSettings({ discountIncludedCategories: newCats });
+                                                        }}
+                                                    />
+                                                    <Label htmlFor={`cat-${cat.id}`} className="text-[10px] cursor-pointer">{cat.label}</Label>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label className="text-xs">割引額/率</Label>
+                                        <div className="flex gap-2">
+                                            <Input
+                                                type="number"
+                                                value={discountAmount}
+                                                onChange={(e) => updateQuotationSettings({ discountAmount: Number(e.target.value) })}
+                                                className="h-8"
+                                            />
+                                            <Button
+                                                variant={discountType === 'percent' ? 'default' : 'outline'}
+                                                size="sm"
+                                                className="h-8 px-2"
+                                                onClick={() => updateQuotationSettings({ discountType: 'percent' })}
+                                            >
+                                                <Percent className="w-3 h-3" />
+                                            </Button>
+                                            <Button
+                                                variant={discountType === 'flat' ? 'default' : 'outline'}
+                                                size="sm"
+                                                className="h-8 px-2"
+                                                onClick={() => updateQuotationSettings({ discountType: 'flat' })}
+                                            >
+                                                <span className="text-[10px]">¥</span>
+                                            </Button>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label className="text-xs">備考 (Remarks)</Label>
+                                        <Textarea
+                                            value={remarks || ''}
+                                            onChange={(e) => updateQuotationSettings({ remarks: e.target.value })}
+                                            className="text-xs min-h-[80px]"
+                                            placeholder="備考を入力してください..."
+                                        />
+                                    </div>
+                                </div>
+                            </PopoverContent>
+                        </Popover>
+
+                        <Button variant="outline" onClick={handleExportCSV}>
+                            <Download className="mr-2 h-4 w-4" /> CSV
+                        </Button>
+                        <Button variant="outline" onClick={handleExportPDF}>
+                            <FileText className="mr-2 h-4 w-4" /> PDF保存
+                        </Button>
                         <Button variant="outline" onClick={() => window.print()}>
-                            <Printer className="mr-2 h-4 w-4" /> 印刷 / PDF
+                            <Printer className="mr-2 h-4 w-4" /> 印刷
                         </Button>
                     </div>
                 </div>
@@ -123,7 +352,7 @@ export function QuotationView() {
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-8 font-sans print:p-0 print:overflow-visible">
-                <div className="max-w-4xl mx-auto bg-white dark:bg-card shadow-lg rounded-none border overflow-hidden min-h-[1000px] print:shadow-none print:border-none print:w-full print:max-w-none print:min-h-0">
+                <div ref={contentRef} className="max-w-4xl mx-auto bg-white dark:bg-card shadow-lg rounded-none border overflow-hidden min-h-[1000px] print:shadow-none print:border-none print:w-full print:max-w-none print:min-h-0">
                     {/* Document Header */}
                     <div className="p-12 border-b bg-white">
                         <div className="flex justify-between items-start mb-12">
@@ -152,7 +381,7 @@ export function QuotationView() {
                                     <span className="text-sm font-semibold text-muted-foreground">
                                         {isInvoiceMode ? 'ご請求金額 (税込)' : '御見積金額 (税込)'}
                                     </span>
-                                    <span className="text-3xl font-bold tracking-tight">¥{grandTotal.toLocaleString()}-</span>
+                                    <span className="text-3xl font-bold tracking-tight">{currency}{grandTotal.toLocaleString()}-</span>
                                 </div>
                             </div>
                         </div>
@@ -298,13 +527,37 @@ export function QuotationView() {
 
                         {/* Grand Total Area */}
                         <div className="flex justify-end pt-8 break-inside-avoid">
-                            <div className="w-[300px] bg-slate-50 dark:bg-muted/10 p-6 rounded-lg space-y-3 print:bg-transparent print:border print:border-slate-200">
+                            <div className="w-[320px] bg-slate-50 dark:bg-muted/10 p-6 rounded-lg space-y-3 print:bg-transparent print:border print:border-slate-200">
                                 <div className="flex justify-between text-sm">
-                                    <span className="font-medium text-muted-foreground">小計</span>
-                                    <span>¥{totalEstimatedCost.toLocaleString()}</span>
+                                    <span className="font-medium text-muted-foreground">割引対象小計 (Basis)</span>
+                                    <span>¥{primarySubtotal.toLocaleString()}</span>
+                                </div>
+
+                                {discountAmount > 0 && (
+                                    <div className="flex justify-between text-sm text-red-600 font-medium">
+                                        <span>割引 ({discountType === 'percent' ? `${discountAmount}%` : '定額'})</span>
+                                        <span>-¥{discountValue.toLocaleString()}</span>
+                                    </div>
+                                )}
+
+                                {nonDiscountedBasis > 0 && (
+                                    <div className="flex justify-between text-sm pt-1">
+                                        <span className="font-medium text-muted-foreground text-[10px]">非対象コスト合計</span>
+                                        <span className="text-[10px]">¥{nonDiscountedBasis.toLocaleString()}</span>
+                                    </div>
+                                )}
+
+                                <Separator className="my-1 bg-slate-200" />
+
+                                <div className="flex justify-between text-sm">
+                                    <span className="font-medium text-muted-foreground">税抜合計</span>
+                                    <span>¥{totalBeforeTax.toLocaleString()}</span>
                                 </div>
                                 <div className="flex justify-between text-sm">
-                                    <span className="font-medium text-muted-foreground">消費税 (10%)</span>
+                                    <span className="font-medium text-muted-foreground text-[10px] flex items-center gap-1">
+                                        消費税 ({activeTaxRate}%)
+                                        {taxRateOverride !== undefined && <Info className="w-2 h-2" />}
+                                    </span>
                                     <span>¥{tax.toLocaleString()}</span>
                                 </div>
                                 <Separator className="my-2 bg-slate-300" />
@@ -318,10 +571,14 @@ export function QuotationView() {
                         {/* Remarks */}
                         <div className="pt-8 text-sm text-muted-foreground">
                             <h4 className="font-bold text-slate-700 mb-2">備考</h4>
-                            <ul className="list-disc list-inside space-y-1">
-                                <li>本見積もりの有効期限は発行日より1ヶ月とさせていただきます。</li>
-                                <li>振込手数料は貴社負担にてお願いいたします。</li>
-                            </ul>
+                            <div className="whitespace-pre-wrap min-h-[60px] border-l-4 border-slate-200 pl-4 py-1 italic">
+                                {remarks || (
+                                    <ul className="list-disc list-inside space-y-1 not-italic">
+                                        <li>本見積もりの有効期限は発行日より1ヶ月とさせていただきます。</li>
+                                        <li>振込手数料は貴社負担にてお願いいたします。</li>
+                                    </ul>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>

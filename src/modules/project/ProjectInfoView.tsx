@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, Save, FolderOpen, RefreshCw, Loader2 } from "lucide-react";
+import { Calendar as CalendarIcon, Save, FolderOpen, RefreshCw, Loader2, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { driveService } from "@/services/driveService";
 import { useSession } from "next-auth/react";
@@ -26,6 +26,7 @@ export function ProjectInfoView() {
         staffName,
         driveFolderId,
         driveFileId,
+        members,
         updateMetadata
     } = useProjectStore();
 
@@ -108,6 +109,8 @@ export function ProjectInfoView() {
             staff: projectState.staff,
             selectedEquipmentIds: projectState.selectedEquipmentIds,
             additionalCosts: projectState.additionalCosts,
+            artboard: projectState.artboard,
+            members: projectState.members,
             meta: {
                 updatedAt: new Date().toISOString(),
                 updatedBy: session.user?.email
@@ -349,6 +352,68 @@ export function ProjectInfoView() {
                                     </div>
                                     <p className="text-xs text-green-600 flex items-center mt-1">
                                         <RefreshCw className="h-3 w-3 mr-1" /> チームフォルダ連携中
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-4 p-6 border rounded-lg bg-card shadow-sm">
+                                <h3 className="font-semibold text-lg flex items-center gap-2">
+                                    <User className="h-5 w-5 text-indigo-500" />
+                                    プロジェクトメンバー
+                                </h3>
+                                <div className="space-y-3">
+                                    <div className="flex gap-2">
+                                        <Input
+                                            placeholder="メールアドレスを追加..."
+                                            id="new-member-email"
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    const val = (e.target as HTMLInputElement).value;
+                                                    if (val && !members.includes(val)) {
+                                                        updateMetadata({ members: [...members, val] });
+                                                        (e.target as HTMLInputElement).value = '';
+                                                        setIsDirty(true);
+                                                    }
+                                                }
+                                            }}
+                                        />
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => {
+                                                const el = document.getElementById('new-member-email') as HTMLInputElement;
+                                                const val = el.value;
+                                                if (val && !members.includes(val)) {
+                                                    updateMetadata({ members: [...members, val] });
+                                                    el.value = '';
+                                                    setIsDirty(true);
+                                                }
+                                            }}
+                                        >
+                                            追加
+                                        </Button>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2 pt-2">
+                                        {members.length === 0 && (
+                                            <p className="text-xs text-muted-foreground italic">メンバーが設定されていません</p>
+                                        )}
+                                        {members.map(email => (
+                                            <div key={email} className="flex items-center gap-1 bg-indigo-50 border border-indigo-100 text-indigo-700 px-2 py-1 rounded-full text-xs">
+                                                {email}
+                                                <button
+                                                    className="hover:text-red-500"
+                                                    onClick={() => {
+                                                        updateMetadata({ members: members.filter(m => m !== email) });
+                                                        setIsDirty(true);
+                                                    }}
+                                                >
+                                                    ×
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <p className="text-[10px] text-muted-foreground">
+                                        ※ ここで追加したユーザーのダッシュボードにこの案件が表示されるようになります。
                                     </p>
                                 </div>
                             </div>

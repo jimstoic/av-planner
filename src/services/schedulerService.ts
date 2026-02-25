@@ -1,5 +1,6 @@
 import { driveService } from "./driveService";
 import { ProjectState, Staff, ScheduleItem } from "@/store/projectStore";
+import { recursiveDateParse } from "@/lib/utils";
 
 export interface ProjectSummary {
     id: string;
@@ -10,6 +11,7 @@ export interface ProjectSummary {
     staff: Staff[];
     equipmentIds: string[];
     schedule: ScheduleItem[];
+    members?: string[];
     spreadsheetUrl?: string;
     fileId: string;
 }
@@ -21,7 +23,6 @@ export const schedulerService = {
      */
     async fetchAllProjects(accessToken: string): Promise<ProjectSummary[]> {
         // 1. Search for all JSON files
-        // We use the same search logic as page.tsx but strictly for JSONs
         const filesResult = await driveService.searchFiles(accessToken, "mimeType = 'application/json' and trashed = false");
 
         if (!filesResult.files) return [];
@@ -32,33 +33,13 @@ export const schedulerService = {
         // 2. Filter relevant files
         const relevantFiles = (filesResult.files || []).filter((f: any) => !ignoredFiles.includes(f.name));
 
-        // 3. Fetch content in parallel (limit concurrency in real app, but here simplistic)
+        // 3. Fetch content in parallel
         const fetchPromises = relevantFiles.map(async (file: any) => {
             try {
-                const res = await fetch(`https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`, {
-                    headers: { Authorization: `Bearer ${accessToken}` }
-                });
-
-                if (!res.ok) return null;
-
-                const data = await res.json();
+                const data = await driveService.getFileContent(accessToken, file.id);
 
                 // Basic validation that it looks like a project
                 if (!data.id || !data.projectName) return null;
-
-                // Recursive date parser similar to store
-                const recursiveDateParse = (obj: any): any => {
-                    if (typeof obj === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(obj)) {
-                        return new Date(obj);
-                    }
-                    if (Array.isArray(obj)) return obj.map(recursiveDateParse);
-                    if (typeof obj === 'object' && obj !== null) {
-                        const result: any = {};
-                        for (const key in obj) result[key] = recursiveDateParse(obj[key]);
-                        return result;
-                    }
-                    return obj;
-                };
 
                 const parsed = recursiveDateParse(data);
 
@@ -71,6 +52,7 @@ export const schedulerService = {
                     staff: parsed.staff || [],
                     equipmentIds: parsed.selectedEquipmentIds || [],
                     schedule: parsed.schedule || [],
+                    members: parsed.members || [],
                     spreadsheetUrl: parsed.spreadsheetUrl,
                     fileId: file.id
                 } as ProjectSummary;

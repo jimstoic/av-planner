@@ -17,21 +17,22 @@ import {
     NodeTypes,
     Panel,
     getNodesBounds,
-    getViewportForBounds,
 } from '@xyflow/react';
 import { toPng } from 'html-to-image';
 import { jsPDF } from 'jspdf';
-import { Download, FileImage, FileText } from 'lucide-react';
+import { FileImage, FileText } from 'lucide-react';
 import '@xyflow/react/dist/style.css';
 import { toast } from 'sonner';
 
 import EquipmentNode from './nodes/EquipmentNode';
 import CableEdge from './edges/CableEdge';
+import { Artboard } from './Artboard';
 import { useProjectStore } from '@/store/projectStore';
 import { Equipment } from '@/types/equipment';
 
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
     Dialog,
     DialogContent,
@@ -47,7 +48,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Input } from "@/components/ui/input"; // Just in case custom length is needed
 
 const nodeTypes: NodeTypes = {
     equipment: EquipmentNode,
@@ -59,10 +59,8 @@ const edgeTypes = {
 
 function DiagramEditorContent() {
     const reactFlowWrapper = useRef<HTMLDivElement>(null);
-    const { screenToFlowPosition, getNodes, getEdges } = useReactFlow();
+    const { screenToFlowPosition, getNodes } = useReactFlow();
 
-    // Use Zustand Global Store instead of local state
-    // Use Zustand Global Store instead of local state
     const {
         nodes,
         edges,
@@ -72,14 +70,13 @@ function DiagramEditorContent() {
         addNode,
         updateEdgeData,
         editingEdgeId,
-        setEditingEdgeId
+        setEditingEdgeId,
+        artboard,
+        updateMetadata
     } = useProjectStore();
 
-    // Edge Interaction State
     const [currentEdgeLength, setCurrentEdgeLength] = useState("1m");
     const [currentEdgeType, setCurrentEdgeType] = useState("HDMI");
-
-    // Sync Dialog with Global State
     const [isEdgeDialogOpen, setIsEdgeDialogOpen] = useState(false);
 
     useEffect(() => {
@@ -106,63 +103,39 @@ function DiagramEditorContent() {
                 length: currentEdgeLength,
                 type: currentEdgeType
             });
-            setEditingEdgeId(null); // Close via effect
+            setEditingEdgeId(null);
             toast.success(`ケーブル設定を更新しました`);
         }
     };
 
-    const downloadImage = (dataUrl: string) => {
-        const a = document.createElement('a');
-        a.setAttribute('download', 'diagram.png');
-        a.setAttribute('href', dataUrl);
-        a.click();
-    };
-
     const handleExport = async (format: 'png' | 'pdf') => {
-        // Validation: Check if there are nodes
+        if (!reactFlowWrapper.current) return;
         if (getNodes().length === 0) {
             toast.error("エクスポートするノードがありません");
             return;
         }
-
-        const nodesBounds = getNodesBounds(getNodes());
-        // Calculate dimensions with some padding
-        const width = nodesBounds.width + 100;
-        const height = nodesBounds.height + 100;
-
-        // Transform to fit the view for capture
-        // We use toPng logic but we might need to adjust viewport momentarily or just use the whole canvas
-        // html-to-image captures the DOM element. 
-        // Ideally we want to capture the whole flow, not just the viewport.
-        // But for simplicity/robustness, we stick to what react flow recommends:
-        // https://reactflow.dev/learn/advanced-use/exporting-images
-
-        if (!reactFlowWrapper.current) return;
 
         const toastId = toast.loading(`${format.toUpperCase()} を作成中...`);
 
         try {
             const dataUrl = await toPng(reactFlowWrapper.current, {
                 backgroundColor: '#eee',
-                width: reactFlowWrapper.current.offsetWidth, // Or full scroll width if we want
+                width: reactFlowWrapper.current.offsetWidth,
                 height: reactFlowWrapper.current.offsetHeight,
-                style: {
-                    // Force transform or specific styles if needed
-                }
             });
 
             if (format === 'png') {
-                downloadImage(dataUrl);
+                const a = document.createElement('a');
+                a.setAttribute('download', 'diagram.png');
+                a.setAttribute('href', dataUrl);
+                a.click();
             } else {
-                const pdf = new jsPDF('l', 'mm', 'a4'); // A4 Landscape
+                const pdf = new jsPDF('l', 'mm', 'a4');
                 const pageWidth = pdf.internal.pageSize.getWidth();
                 const pageHeight = pdf.internal.pageSize.getHeight();
-
-                // Scale image to fit A4
                 const imgProps = pdf.getImageProperties(dataUrl);
                 const pdfWidth = pageWidth;
                 const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-
                 pdf.addImage(dataUrl, 'PNG', 0, 0, pdfWidth, pdfHeight);
                 pdf.save('diagram.pdf');
             }
@@ -174,38 +147,31 @@ function DiagramEditorContent() {
     };
 
     const onConnectWrapper = useCallback(
-        // ... no change to onConnectWrapper logic 
         (params: Connection) => {
             const sourceNode = nodes.find((n) => n.id === params.source);
             const targetNode = nodes.find((n) => n.id === params.target);
-
             if (!sourceNode || !targetNode) return;
 
             const sourceData = sourceNode.data as any;
             const targetData = targetNode.data as any;
-
             const sourceConnector = sourceData.connectors?.find((c: any) => c.id === params.sourceHandle);
             const targetConnector = targetData.connectors?.find((c: any) => c.id === params.targetHandle);
 
             if (!sourceConnector || !targetConnector) return;
 
-            // VALIDATION: Check if connector types match
             if (sourceConnector.type !== targetConnector.type) {
                 toast.error(`接続エラー: ${sourceConnector.type} を ${targetConnector.type} に接続することはできません。`);
                 return;
             }
 
-            // Pass connection with metadata to store
-            const connection = {
+            onConnect({
                 ...params,
-                type: 'cable', // ensure Custom Edge is used
+                type: 'cable',
                 data: {
                     length: '1m',
-                    type: sourceConnector.type, // e.g. "HDMI", "SDI", "XLR"
+                    type: sourceConnector.type,
                 }
-            };
-
-            onConnect(connection);
+            } as any);
         },
         [nodes, onConnect]
     );
@@ -218,27 +184,21 @@ function DiagramEditorContent() {
     const onDrop = useCallback(
         (event: React.DragEvent) => {
             event.preventDefault();
-
-            // Try to get equipment data from JSON
             let equipmentData: Equipment | null = null;
             try {
                 const jsonData = event.dataTransfer.getData('application/json');
-                if (jsonData) {
-                    equipmentData = JSON.parse(jsonData);
-                }
+                if (jsonData) equipmentData = JSON.parse(jsonData);
             } catch (e) {
                 console.error("Failed to parse drop data", e);
             }
 
             if (!equipmentData) return;
 
-            // project from screen coordinates to flow coordinates
             const position = screenToFlowPosition({
                 x: event.clientX,
                 y: event.clientY,
             });
 
-            // Generate Connectors if missing (Layout fix)
             let nodeConnectors = equipmentData?.connectors || [];
             if (nodeConnectors.length === 0 && (equipmentData.inputPortCount > 0 || equipmentData.outputPortCount > 0)) {
                 const inputs = Array.from({ length: equipmentData.inputPortCount || 0 }, (_, i) => ({
@@ -256,7 +216,7 @@ function DiagramEditorContent() {
                 nodeConnectors = [...inputs, ...outputs] as any[];
             }
 
-            const newNode = {
+            addNode({
                 id: `node-${Date.now()}`,
                 type: 'equipment',
                 position,
@@ -266,18 +226,15 @@ function DiagramEditorContent() {
                     equipmentId: equipmentData.id,
                     connectors: nodeConnectors
                 },
-            };
-
-            addNode(newNode); // Use store action
+            });
         },
         [screenToFlowPosition, addNode],
     );
 
     const onEdgeClick = useCallback((event: React.MouseEvent, edge: Edge) => {
         event.stopPropagation();
-        setEditingEdgeId(edge.id); // Just set global state
+        setEditingEdgeId(edge.id);
     }, [setEditingEdgeId]);
-
 
     return (
         <div ref={reactFlowWrapper} className="h-full w-full">
@@ -294,23 +251,70 @@ function DiagramEditorContent() {
                 onDrop={onDrop}
                 fitView
                 snapToGrid
-                colorMode="light" // Force light mode as requested
+                colorMode="light"
             >
-                <Background color="#eee" gap={16} /> {/* Lighter background */}
+                <Artboard
+                    size={artboard?.size || 'A4'}
+                    orientation={artboard?.orientation || 'landscape'}
+                />
+                <Background color="#eee" gap={16} />
                 <Controls />
                 <MiniMap />
-                <Panel position="top-right" className="bg-white/80 p-2 rounded-lg border shadow-sm backdrop-blur flex gap-2">
-                    <Button variant="outline" size="sm" onClick={() => handleExport('png')}>
-                        <FileImage className="mr-2 h-4 w-4" /> PNG
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => handleExport('pdf')}>
-                        <FileText className="mr-2 h-4 w-4" /> PDF
-                    </Button>
+                <Panel position="top-right" className="bg-white/80 p-2 rounded-lg border shadow-sm backdrop-blur flex flex-col gap-2">
+                    <div className="flex gap-2 border-b pb-2">
+                        <Button variant="outline" size="sm" onClick={() => handleExport('png')}>
+                            <FileImage className="mr-2 h-4 w-4" /> PNG
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => handleExport('pdf')}>
+                            <FileText className="mr-2 h-4 w-4" /> PDF
+                        </Button>
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                        <Label className="text-[10px] uppercase text-muted-foreground font-bold">Artboard Settings</Label>
+                        <div className="flex items-center justify-between gap-4">
+                            <span className="text-xs">Show</span>
+                            <Switch
+                                checked={artboard?.enabled}
+                                onCheckedChange={(val) => updateMetadata({ artboard: { ...artboard, enabled: val } })}
+                            />
+                        </div>
+                        {artboard?.enabled && (
+                            <>
+                                <div className="flex items-center justify-between gap-4">
+                                    <span className="text-xs">Size</span>
+                                    <Select
+                                        value={artboard.size}
+                                        onValueChange={(val: any) => updateMetadata({ artboard: { ...artboard, size: val } })}
+                                    >
+                                        <SelectTrigger className="h-7 w-20 text-xs text-right">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="A4">A4</SelectItem>
+                                            <SelectItem value="A3">A3</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="flex items-center justify-between gap-4">
+                                    <span className="text-xs">Orientation</span>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 px-2 text-[10px]"
+                                        onClick={() => updateMetadata({ artboard: { ...artboard, orientation: artboard.orientation === 'portrait' ? 'landscape' : 'portrait' } })}
+                                    >
+                                        {artboard.orientation === 'portrait' ? 'Landscape' : 'Portrait'}
+                                    </Button>
+                                </div>
+                            </>
+                        )}
+                    </div>
                 </Panel>
             </ReactFlow>
 
             <Dialog open={isEdgeDialogOpen} onOpenChange={handleDialogClose}>
-                <DialogContent>
+                <DialogContent className="sm:max-w-[425px]">
                     <DialogHeader>
                         <DialogTitle>ケーブル設定</DialogTitle>
                         <DialogDescription>
@@ -319,9 +323,7 @@ function DiagramEditorContent() {
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                         <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="type" className="text-right">
-                                種類
-                            </Label>
+                            <Label htmlFor="type" className="text-right text-xs">種類</Label>
                             <Select value={currentEdgeType} onValueChange={setCurrentEdgeType}>
                                 <SelectTrigger className="w-[180px]">
                                     <SelectValue placeholder="種類を選択" />
@@ -338,23 +340,15 @@ function DiagramEditorContent() {
                             </Select>
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="length" className="text-right">
-                                長さ
-                            </Label>
+                            <Label htmlFor="length" className="text-right text-xs">長さ</Label>
                             <Select value={currentEdgeLength} onValueChange={setCurrentEdgeLength}>
                                 <SelectTrigger className="w-[180px]">
                                     <SelectValue placeholder="長さを選択" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="1m">1m</SelectItem>
-                                    <SelectItem value="2m">2m</SelectItem>
-                                    <SelectItem value="3m">3m</SelectItem>
-                                    <SelectItem value="5m">5m</SelectItem>
-                                    <SelectItem value="10m">10m</SelectItem>
-                                    <SelectItem value="20m">20m</SelectItem>
-                                    <SelectItem value="30m">30m</SelectItem>
-                                    <SelectItem value="50m">50m</SelectItem>
-                                    <SelectItem value="100m">100m</SelectItem>
+                                    {['1m', '2m', '3m', '5m', '10m', '20m', '30m', '50m', '100m'].map(l => (
+                                        <SelectItem key={l} value={l}>{l}</SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
                         </div>
