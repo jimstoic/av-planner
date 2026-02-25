@@ -59,6 +59,11 @@ export interface ProjectState {
     discountType: 'flat' | 'percent';
     discountIncludedCategories: string[]; // ['staff', 'equipment', 'production', 'other']
     remarks?: string;
+    equipmentOverrides: Record<string, {
+        name?: string;
+        unitPrice?: number;
+        quantity?: number;
+    }>;
     // UI State
     editingEdgeId: string | null;
 }
@@ -77,6 +82,7 @@ interface ProjectActions {
     updateEdgeData: (id: string, data: Record<string, unknown>) => void;
     setEditingEdgeId: (id: string | null) => void;
     updateQuotationSettings: (settings: Partial<{ taxRateOverride: number, discountAmount: number, discountType: 'flat' | 'percent', discountIncludedCategories: string[], remarks: string }>) => void;
+    updateEquipmentOverride: (id: string, override: Partial<ProjectState['equipmentOverrides'][string]>) => void;
 
     // Cost Actions
     setAdditionalCosts: (costs: ProjectState['additionalCosts']) => void;
@@ -131,6 +137,7 @@ const initialState: ProjectState = {
     discountAmount: 0,
     discountType: 'percent',
     discountIncludedCategories: ['staff', 'equipment', 'production'], // Default to 1-3
+    equipmentOverrides: {},
     editingEdgeId: null,
 };
 
@@ -160,6 +167,7 @@ export const useProjectStore = create<ProjectState & ProjectActions>((set, get) 
         parsedState.discountAmount = parsedState.discountAmount || 0;
         parsedState.discountType = parsedState.discountType || 'percent';
         parsedState.discountIncludedCategories = parsedState.discountIncludedCategories || ['staff', 'equipment', 'production'];
+        parsedState.equipmentOverrides = parsedState.equipmentOverrides || {};
 
         set(parsedState);
     },
@@ -173,6 +181,16 @@ export const useProjectStore = create<ProjectState & ProjectActions>((set, get) 
     setDriveFolderName: (name) => set({ driveFolderName: name }),
 
     updateQuotationSettings: (settings) => set((state) => ({ ...state, ...settings })),
+
+    updateEquipmentOverride: (id, override) => set((state) => ({
+        equipmentOverrides: {
+            ...state.equipmentOverrides,
+            [id]: {
+                ...state.equipmentOverrides[id],
+                ...override
+            }
+        }
+    })),
 
     updateMetadata: (data) => set((state) => {
         const newState = { ...state, ...data };

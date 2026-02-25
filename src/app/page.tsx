@@ -114,6 +114,7 @@ export default function LandingPage() {
                 discountAmount: data.discountAmount || 0,
                 discountType: data.discountType || 'percent',
                 discountIncludedCategories: data.discountIncludedCategories || ['staff', 'equipment', 'production'],
+                equipmentOverrides: data.equipmentOverrides || {},
                 editingEdgeId: null
             });
 

@@ -254,6 +254,7 @@ function DiagramEditorContent() {
                 colorMode="light"
             >
                 <Artboard
+                    enabled={artboard?.enabled || false}
                     size={artboard?.size || 'A4'}
                     orientation={artboard?.orientation || 'landscape'}
                 />

@@ -72,6 +72,7 @@ export function TemplateWizard() {
             discountAmount: 0,
             discountType: 'percent',
             discountIncludedCategories: ['staff', 'equipment', 'production'],
+            equipmentOverrides: {},
             editingEdgeId: null
         });
 
