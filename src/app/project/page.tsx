@@ -82,7 +82,7 @@ function ProjectContent() {
               className="flex flex-col gap-1 items-center py-3 px-6 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary hover:text-primary/80 transition-all"
             >
               <Receipt className="h-5 w-5" />
-              <span className="text-xs font-medium">4. 見積もり</span>
+              <span className="text-xs font-medium">4. 見積・請求</span>
             </TabsTrigger>
 
             <TabsTrigger
