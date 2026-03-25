@@ -9,12 +9,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, Save, FolderOpen, RefreshCw, Loader2, User } from "lucide-react";
+import { Calendar as CalendarIcon, Save, FolderOpen, RefreshCw, Loader2, User, Download, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { driveService } from "@/services/driveService";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import { StaffManager } from "./StaffManager";
+import { useStaffMasterStore } from "@/store/staffMasterStore";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export function ProjectInfoView() {
     const {
@@ -31,9 +34,8 @@ export function ProjectInfoView() {
     } = useProjectStore();
 
     const { data: session } = useSession();
-
-    // Removed Picker Hook
-
+    const { masterStaff } = useStaffMasterStore();
+    const [isMemberPickerOpen, setIsMemberPickerOpen] = useState(false);
 
     const [formData, setFormData] = useState({
         name: "",
@@ -147,6 +149,29 @@ export function ProjectInfoView() {
         setIsDirty(true);
     };
 
+    const handleJsonDownload = () => {
+        const projectState = useProjectStore.getState();
+        const payload = {
+            version: "1.0.0",
+            ...projectState,
+            projectName: formData.name,
+            clientName: formData.client,
+            venue: formData.venue,
+            startDate: formData.startDate,
+            endDate: formData.endDate,
+            setupDate: formData.setupDate,
+            meta: { exportedAt: new Date().toISOString() }
+        };
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${formData.name || 'project'}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        toast.success('JSONファイルをダウンロードしました');
+    };
+
     // Picker logic removed
 
 
@@ -162,10 +187,16 @@ export function ProjectInfoView() {
                             プロジェクトの基本情報と連携設定を管理します
                         </p>
                     </div>
-                    <Button onClick={handleSave} disabled={!isDirty || isSaving} size="lg">
-                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                        {isDirty ? '変更を保存' : '保存済み'}
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" onClick={handleJsonDownload}>
+                            <Download className="mr-2 h-4 w-4" />
+                            JSON保存
+                        </Button>
+                        <Button onClick={handleSave} disabled={!isDirty || isSaving} size="lg">
+                            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                            {isDirty ? '変更を保存' : '保存済み'}
+                        </Button>
+                    </div>
                 </div>
             </div>
 
@@ -362,6 +393,17 @@ export function ProjectInfoView() {
                                     プロジェクトメンバー
                                 </h3>
                                 <div className="space-y-3">
+                                    {masterStaff.length > 0 && (
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="w-full"
+                                            onClick={() => setIsMemberPickerOpen(true)}
+                                        >
+                                            <Users className="mr-2 h-4 w-4" />
+                                            スタッフマスターから選択
+                                        </Button>
+                                    )}
                                     <div className="flex gap-2">
                                         <Input
                                             placeholder="メールアドレスを追加..."
@@ -425,6 +467,54 @@ export function ProjectInfoView() {
                     </div>
                 </div>
             </div>
+
+            {/* Master Staff Member Picker Dialog */}
+            <Dialog open={isMemberPickerOpen} onOpenChange={setIsMemberPickerOpen}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>スタッフマスターからメンバーを追加</DialogTitle>
+                    </DialogHeader>
+                    <p className="text-xs text-muted-foreground -mt-2">
+                        選択したスタッフのメールアドレスをプロジェクトメンバーに追加します
+                    </p>
+                    <div className="max-h-72 overflow-y-auto space-y-1 py-2">
+                        {masterStaff.filter(m => m.email).map(m => {
+                            const already = members.includes(m.email);
+                            return (
+                                <label
+                                    key={m.id}
+                                    className="flex items-center gap-3 p-2 rounded hover:bg-muted/50 cursor-pointer"
+                                >
+                                    <Checkbox
+                                        checked={already}
+                                        onCheckedChange={(checked) => {
+                                            if (checked && !already) {
+                                                updateMetadata({ members: [...members, m.email] });
+                                                setIsDirty(true);
+                                            } else if (!checked && already) {
+                                                updateMetadata({ members: members.filter(em => em !== m.email) });
+                                                setIsDirty(true);
+                                            }
+                                        }}
+                                    />
+                                    <div>
+                                        <div className="text-sm font-medium">{m.name}</div>
+                                        <div className="text-xs text-muted-foreground">{m.email}</div>
+                                    </div>
+                                </label>
+                            );
+                        })}
+                        {masterStaff.filter(m => m.email).length === 0 && (
+                            <p className="text-sm text-muted-foreground text-center py-4">
+                                メールアドレスが登録されたスタッフがいません
+                            </p>
+                        )}
+                    </div>
+                    <DialogFooter>
+                        <Button onClick={() => setIsMemberPickerOpen(false)}>完了</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

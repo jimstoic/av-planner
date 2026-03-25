@@ -11,7 +11,6 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
     Select,
     SelectContent,
@@ -146,7 +145,7 @@ export function DocumentEditor() {
     const dialogContent = getStatusDialogContent();
 
     return (
-        <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-100 dark:bg-background">
+        <div className="flex-1 flex flex-col min-h-0 bg-slate-100 dark:bg-background">
             {/* Toolbar */}
             <div className="border-b bg-background shadow-sm py-3 px-6 shrink-0 print:hidden">
                 <div className="flex justify-between items-center">
@@ -327,7 +326,7 @@ export function DocumentEditor() {
             </div>
 
             {/* Document Content */}
-            <ScrollArea className="flex-1">
+            <div className="flex-1 overflow-y-auto min-h-0">
                 <div className="max-w-4xl mx-auto p-8">
                     <div className="bg-white shadow-xl rounded-none border-none overflow-hidden min-h-[800px] text-black">
                         {/* Document Header */}
@@ -496,7 +495,7 @@ export function DocumentEditor() {
                         </div>
                     </div>
                 </div>
-            </ScrollArea>
+            </div>
 
             {/* Status Change Confirmation Dialog */}
             <AlertDialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>

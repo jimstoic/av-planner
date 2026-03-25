@@ -11,6 +11,7 @@ export interface StaffMaster {
     dayRate: number;
     email: string;
     phone?: string;
+    isExternal?: boolean; // 外部スタッフフラグ
 }
 
 interface StaffMasterState {

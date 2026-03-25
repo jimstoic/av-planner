@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useProjectStore, ScheduleItem, Staff } from '@/store/projectStore';
+import { useStaffMasterStore } from '@/store/staffMasterStore';
 import { format, addDays, differenceInDays, isSameDay, startOfDay, isWithinInterval } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
@@ -29,7 +30,8 @@ export function ScheduleView() {
         removeScheduleItem
     } = useProjectStore();
 
-    const [viewMode, setViewMode] = useState<'project' | 'global'>('project');
+    const { masterStaff } = useStaffMasterStore();
+    const [viewMode, setViewMode] = useState<'project' | 'staff' | 'global'>('project');
     const [globalTab, setGlobalTab] = useState<'timeline' | 'staff' | 'equipment'>('timeline');
     const [globalProjects, setGlobalProjects] = useState<ProjectSummary[]>([]);
     const [isLoadingGlobal, setIsLoadingGlobal] = useState(false);
@@ -40,7 +42,7 @@ export function ScheduleView() {
     };
 
     useEffect(() => {
-        if (viewMode === 'global' && globalProjects.length === 0) {
+        if ((viewMode === 'global' || viewMode === 'staff') && globalProjects.length === 0) {
             const fetchGlobal = async () => {
                 setIsLoadingGlobal(true);
                 try {
@@ -217,11 +219,15 @@ export function ScheduleView() {
         <div className="flex flex-col h-full w-full bg-background">
             {/* Header / Tabs */}
             <div className="border-b bg-muted/20 px-4 py-2 flex justify-between items-center">
-                <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'project' | 'global')} className="w-[400px]">
-                    <TabsList className="grid w-full grid-cols-2">
+                <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'project' | 'staff' | 'global')} className="w-[520px]">
+                    <TabsList className="grid w-full grid-cols-3">
                         <TabsTrigger value="project">
                             <Layers className="w-4 h-4 mr-2" />
                             Project Schedule
+                        </TabsTrigger>
+                        <TabsTrigger value="staff">
+                            <User className="w-4 h-4 mr-2" />
+                            Staff Schedule
                         </TabsTrigger>
                         <TabsTrigger value="global">
                             <Globe className="w-4 h-4 mr-2" />
@@ -308,6 +314,31 @@ export function ScheduleView() {
                     </div>
                 )}
             </div>
+
+            {/* Staff Schedule Tab */}
+            {viewMode === 'staff' && (
+                <div className="flex-1 flex flex-col overflow-hidden">
+                    <div className="flex-1 overflow-auto p-4">
+                        {isLoadingGlobal ? (
+                            <div className="flex items-center justify-center h-full text-muted-foreground">
+                                プロジェクトデータを読み込み中...
+                            </div>
+                        ) : (
+                            <div className="min-w-[900px] border rounded-lg bg-card shadow-sm overflow-hidden">
+                                <StaffScheduleView
+                                    staff={staff}
+                                    masterStaff={masterStaff}
+                                    schedule={schedule}
+                                    startDate={startDate}
+                                    endDate={endDate}
+                                    setupDate={setupDate}
+                                    globalProjects={globalProjects}
+                                />
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {viewMode === 'global' && (
                 <div className="flex-1 flex flex-col overflow-hidden">
@@ -555,6 +586,211 @@ export function ScheduleView() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+        </div>
+    );
+}
+
+// Sub-component: Staff Schedule View
+function StaffScheduleView({
+    staff,
+    masterStaff,
+    schedule,
+    startDate,
+    endDate,
+    setupDate,
+    globalProjects,
+}: {
+    staff: Staff[];
+    masterStaff: { id: string; name: string; isExternal?: boolean }[];
+    schedule: ScheduleItem[];
+    startDate: Date;
+    endDate: Date;
+    setupDate: Date;
+    globalProjects: ProjectSummary[];
+}) {
+    // Build unified staff list: project-assigned staff + master staff
+    const allStaffNames = new Map<string, { name: string; isExternal?: boolean; id: string }>();
+    masterStaff.forEach(m => allStaffNames.set(m.name, { name: m.name, isExternal: m.isExternal, id: m.id }));
+    staff.forEach(s => {
+        if (!allStaffNames.has(s.name)) allStaffNames.set(s.name, { name: s.name, isExternal: false, id: s.id });
+    });
+    const staffList = Array.from(allStaffNames.values());
+
+    // Timeline range: 60 days from 1 week before today
+    const today = startOfDay(new Date());
+    const rangeStart = addDays(today, -7);
+    const rangeEnd = addDays(today, 53);
+    const totalDays = differenceInDays(rangeEnd, rangeStart) + 1;
+    const days = Array.from({ length: totalDays }, (_, i) => addDays(rangeStart, i));
+
+    const getStyle = (s: Date, e: Date) => {
+        const sDiff = Math.max(0, differenceInDays(startOfDay(new Date(s)), rangeStart));
+        const eClipped = new Date(Math.min(new Date(e).getTime(), rangeEnd.getTime()));
+        const dur = Math.max(1, differenceInDays(startOfDay(eClipped), startOfDay(new Date(s))) + 1);
+        if (sDiff >= totalDays) return null;
+        return {
+            left: `${(sDiff / totalDays) * 100}%`,
+            width: `${(dur / totalDays) * 100}%`,
+        };
+    };
+
+    // Get schedule items assigned to each staff member (current project)
+    const getProjectAssignments = (staffEntry: { name: string; id: string }) => {
+        const projectStaff = staff.find(s => s.name === staffEntry.name);
+        if (!projectStaff) return [];
+        return schedule.filter(item => item.assignedStaffIds?.includes(projectStaff.id));
+    };
+
+    // Get cross-project assignments from global projects
+    const getGlobalAssignments = (staffEntry: { name: string }) => {
+        return globalProjects.filter(p =>
+            p.staff.some(s => s.name === staffEntry.name)
+        );
+    };
+
+    const TYPE_COLORS: Record<string, string> = {
+        setup: 'bg-amber-400 text-amber-900',
+        rehearsal: 'bg-purple-400 text-purple-900',
+        show: 'bg-red-500 text-white',
+        strike: 'bg-slate-400 text-slate-900',
+        other: 'bg-blue-400 text-blue-900',
+    };
+
+    return (
+        <div>
+            {/* Header */}
+            <div className="flex border-b bg-muted/50 sticky top-0 z-10">
+                <div className="w-44 p-2 border-r bg-muted/50 shrink-0 sticky left-0 z-20 font-bold text-sm">
+                    スタッフ
+                </div>
+                <div className="flex-1 flex relative overflow-hidden">
+                    {days.filter((_, i) => i % 7 === 0).map((day, i) => (
+                        <div
+                            key={i}
+                            className="border-r text-xs px-1 py-2 text-muted-foreground"
+                            style={{ width: `${(7 / totalDays) * 100}%`, minWidth: 0 }}
+                        >
+                            {format(day, 'M/d')}
+                        </div>
+                    ))}
+                    {/* Today marker */}
+                    <div
+                        className="absolute top-0 bottom-0 border-l-2 border-blue-500 opacity-70 z-10"
+                        style={{ left: `${(differenceInDays(today, rangeStart) / totalDays) * 100}%` }}
+                    />
+                </div>
+            </div>
+
+            {/* Rows */}
+            <div className="bg-white dark:bg-card">
+                {staffList.length === 0 && (
+                    <div className="p-8 text-center text-muted-foreground text-sm">
+                        スタッフが登録されていません。プロジェクト情報からスタッフをアサインしてください。
+                    </div>
+                )}
+                {staffList.map(s => {
+                    const scheduleItems = getProjectAssignments(s);
+                    const projectAssignments = getGlobalAssignments(s);
+                    const isInCurrentProject = staff.some(ps => ps.name === s.name);
+
+                    return (
+                        <div key={s.id} className="flex border-b h-14 items-center hover:bg-muted/5 relative">
+                            <div className="w-44 px-3 py-2 border-r shrink-0 sticky left-0 bg-background z-10">
+                                <div className="font-medium text-sm truncate">{s.name}</div>
+                                <div className="flex items-center gap-1 mt-0.5">
+                                    {s.isExternal && (
+                                        <span className="text-[9px] px-1 rounded bg-orange-100 text-orange-700">外部</span>
+                                    )}
+                                    {isInCurrentProject && (
+                                        <span className="text-[9px] px-1 rounded bg-blue-100 text-blue-700">本案件</span>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="flex-1 relative h-full">
+                                {/* Grid lines */}
+                                <div className="absolute inset-0 flex pointer-events-none">
+                                    {days.map((day, i) => (
+                                        <div
+                                            key={i}
+                                            className={cn(
+                                                "flex-1 border-r opacity-20",
+                                                isSameDay(day, today) && "bg-blue-200 opacity-30"
+                                            )}
+                                        />
+                                    ))}
+                                </div>
+
+                                {/* Cross-project bars */}
+                                {projectAssignments.length === 0 && globalProjects.length > 0 &&
+                                    getGlobalAssignments(s).map(p => {
+                                        const style = getStyle(new Date(p.startDate), new Date(p.endDate));
+                                        if (!style) return null;
+                                        return (
+                                            <div
+                                                key={p.id}
+                                                className="absolute top-1.5 bottom-1.5 bg-slate-400/70 rounded text-[9px] text-white px-1 flex items-center overflow-hidden"
+                                                style={style}
+                                                title={`${p.name} (${format(new Date(p.startDate), 'M/d')}〜${format(new Date(p.endDate), 'M/d')})`}
+                                            >
+                                                {p.name}
+                                            </div>
+                                        );
+                                    })
+                                }
+
+                                {/* Schedule item bars (current project) */}
+                                {scheduleItems.map((item, idx) => {
+                                    const style = getStyle(item.start, item.end);
+                                    if (!style) return null;
+                                    const colorClass = TYPE_COLORS[item.type] || TYPE_COLORS.other;
+                                    // Stagger if multiple items overlap
+                                    const topClass = idx % 2 === 0 ? 'top-1.5 bottom-4' : 'top-4 bottom-1.5';
+                                    return (
+                                        <div
+                                            key={item.id}
+                                            className={cn(
+                                                "absolute rounded text-[9px] px-1 flex items-center overflow-hidden font-medium",
+                                                colorClass,
+                                                topClass,
+                                            )}
+                                            style={style}
+                                            title={`${item.title} (${format(new Date(item.start), 'M/d')}〜${format(new Date(item.end), 'M/d')})`}
+                                        >
+                                            {item.title}
+                                        </div>
+                                    );
+                                })}
+
+                                {/* If no schedule items but is in current project, show project range */}
+                                {scheduleItems.length === 0 && isInCurrentProject && (() => {
+                                    const style = getStyle(setupDate, endDate);
+                                    if (!style) return null;
+                                    return (
+                                        <div
+                                            className="absolute top-2 bottom-2 bg-blue-200/60 border border-blue-300 rounded text-[9px] text-blue-800 px-1 flex items-center overflow-hidden"
+                                            style={style}
+                                            title="本案件アサイン期間"
+                                        >
+                                            本案件
+                                        </div>
+                                    );
+                                })()}
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+
+            {/* Legend */}
+            <div className="flex items-center gap-4 px-4 py-2 border-t bg-muted/20 text-[10px] text-muted-foreground">
+                <span className="font-medium">凡例:</span>
+                {Object.entries(TYPE_COLORS).map(([type, cls]) => (
+                    <span key={type} className={cn("px-2 py-0.5 rounded", cls)}>
+                        {type === 'setup' ? '仕込み' : type === 'rehearsal' ? 'リハ' : type === 'show' ? '本番' : type === 'strike' ? '撤収' : 'その他'}
+                    </span>
+                ))}
+                <span className="border-l-2 border-blue-500 pl-2">今日</span>
+            </div>
         </div>
     );
 }

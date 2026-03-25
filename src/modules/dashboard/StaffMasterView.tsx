@@ -8,7 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, Pencil, Trash2, Users } from 'lucide-react';
+import { Plus, Pencil, Trash2, Users, Building2 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 
 export function StaffMasterView() {
@@ -17,7 +18,7 @@ export function StaffMasterView() {
     const [editing, setEditing] = useState<Partial<StaffMaster> | null>(null);
 
     const handleOpen = (staff?: StaffMaster) => {
-        setEditing(staff ? { ...staff } : { name: '', dayRate: 0, email: '' });
+        setEditing(staff ? { ...staff } : { name: '', dayRate: 0, email: '', isExternal: false });
         setIsDialogOpen(true);
     };
 
@@ -35,6 +36,7 @@ export function StaffMasterView() {
                 dayRate: editing.dayRate || 0,
                 email: editing.email || '',
                 phone: editing.phone || '',
+                isExternal: editing.isExternal || false,
             });
             toast.success(`${editing.name} をマスターに登録しました`);
         }
@@ -88,6 +90,7 @@ export function StaffMasterView() {
                                 <TableHeader>
                                     <TableRow className="bg-muted/50">
                                         <TableHead>名前</TableHead>
+                                        <TableHead className="w-[80px]">区分</TableHead>
                                         <TableHead className="text-right">日当</TableHead>
                                         <TableHead>Email</TableHead>
                                         <TableHead className="w-[100px]"></TableHead>
@@ -97,6 +100,15 @@ export function StaffMasterView() {
                                     {masterStaff.map((s) => (
                                         <TableRow key={s.id}>
                                             <TableCell className="font-medium">{s.name}</TableCell>
+                                            <TableCell>
+                                                {s.isExternal ? (
+                                                    <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700 border border-orange-200">
+                                                        <Building2 className="h-2.5 w-2.5" />外部
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-[10px] text-muted-foreground">社員</span>
+                                                )}
+                                            </TableCell>
                                             <TableCell className="text-right font-mono">
                                                 ¥{s.dayRate.toLocaleString()}
                                             </TableCell>
@@ -175,6 +187,18 @@ export function StaffMasterView() {
                                 onChange={(e) => setEditing(p => ({ ...p, phone: e.target.value }))}
                                 placeholder="090-0000-0000"
                             />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label className="text-right">外部スタッフ</Label>
+                            <div className="col-span-3 flex items-center gap-3">
+                                <Switch
+                                    checked={editing?.isExternal || false}
+                                    onCheckedChange={(v) => setEditing(p => ({ ...p, isExternal: v }))}
+                                />
+                                <span className="text-sm text-muted-foreground">
+                                    {editing?.isExternal ? '外部スタッフ（フリーランス・協力会社など）' : '社員'}
+                                </span>
+                            </div>
                         </div>
                     </div>
                     <DialogFooter>

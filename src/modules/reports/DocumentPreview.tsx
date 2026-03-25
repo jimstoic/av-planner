@@ -1,20 +1,23 @@
 "use client";
 
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { useDocumentStore } from '@/store/documentStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { QuotationDocument } from '@/types/document';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { Download, FileText, Printer } from 'lucide-react';
+import { Download, FileText, Printer, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+import { toPng } from 'html-to-image';
+import { jsPDF } from 'jspdf';
 
 export function DocumentPreview() {
     const doc = useDocumentStore(s => s.getActiveDocument());
     const documents = useDocumentStore(s => s.documents);
     const { currency } = useSettingsStore();
     const contentRef = useRef<HTMLDivElement>(null);
+    const [isExportingPdf, setIsExportingPdf] = useState(false);
 
     // Find source quotation for invoices
     const sourceQuotation = doc?.sourceQuotationId
@@ -51,8 +54,52 @@ export function DocumentPreview() {
 
     const themeColor = doc.type === 'invoice' ? 'text-emerald-600' : 'text-blue-600';
 
-    const handleExportPDF = () => {
-        window.print();
+    const handleExportPDF = async () => {
+        if (!contentRef.current || !doc) return;
+        setIsExportingPdf(true);
+        try {
+            const dataUrl = await toPng(contentRef.current, {
+                quality: 1,
+                pixelRatio: 2,
+                backgroundColor: '#ffffff',
+            });
+
+            // A4 dimensions in mm
+            const A4_W = 210;
+            const A4_H = 297;
+            const MARGIN = 10;
+            const contentW = A4_W - MARGIN * 2;
+
+            // Calculate rendered image height in mm
+            const imgEl = contentRef.current;
+            const imgHeightMM = (imgEl.offsetHeight / imgEl.offsetWidth) * contentW;
+            const pageContentH = A4_H - MARGIN * 2;
+
+            const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+            let pageCount = 0;
+            let yDrawn = 0;
+
+            while (yDrawn < imgHeightMM) {
+                if (pageCount > 0) pdf.addPage();
+                // Draw image offset so the correct portion appears on this page
+                pdf.addImage(dataUrl, 'PNG', MARGIN, MARGIN - yDrawn, contentW, imgHeightMM);
+                // Clip to page by drawing white rect over overflow (top of first page is fine)
+                if (pageCount === 0 && yDrawn === 0) {
+                    // nothing to clip on first page top
+                }
+                yDrawn += pageContentH;
+                pageCount++;
+            }
+
+            pdf.save(`${doc.documentNumber}.pdf`);
+            toast.success('PDFを書き出しました');
+        } catch (e) {
+            console.error(e);
+            toast.error('PDF書き出しに失敗しました');
+        } finally {
+            setIsExportingPdf(false);
+        }
     };
 
     const handleExportCSV = () => {
@@ -122,8 +169,9 @@ export function DocumentPreview() {
                         <Button variant="outline" size="sm" className="h-8 text-xs" onClick={handleExportCSV}>
                             <Download className="mr-1.5 h-3.5 w-3.5" /> CSV
                         </Button>
-                        <Button variant="outline" size="sm" className="h-8 text-xs" onClick={handleExportPDF}>
-                            <FileText className="mr-1.5 h-3.5 w-3.5" /> PDF保存
+                        <Button variant="outline" size="sm" className="h-8 text-xs" onClick={handleExportPDF} disabled={isExportingPdf}>
+                            {isExportingPdf ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <FileText className="mr-1.5 h-3.5 w-3.5" />}
+                            PDF保存
                         </Button>
                         <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => window.print()}>
                             <Printer className="mr-1.5 h-3.5 w-3.5" /> 印刷
