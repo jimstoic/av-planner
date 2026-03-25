@@ -8,7 +8,6 @@ import { persist } from 'zustand/middleware';
 export interface StaffMaster {
     id: string;
     name: string;
-    role: string;       // Director, Camera, Sound, etc.
     dayRate: number;
     email: string;
     phone?: string;

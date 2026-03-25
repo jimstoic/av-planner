@@ -17,13 +17,13 @@ export function StaffMasterView() {
     const [editing, setEditing] = useState<Partial<StaffMaster> | null>(null);
 
     const handleOpen = (staff?: StaffMaster) => {
-        setEditing(staff ? { ...staff } : { name: '', role: '', dayRate: 0, email: '' });
+        setEditing(staff ? { ...staff } : { name: '', dayRate: 0, email: '' });
         setIsDialogOpen(true);
     };
 
     const handleSave = () => {
-        if (!editing?.name || !editing?.role) {
-            toast.error('名前と役割は必須です');
+        if (!editing?.name) {
+            toast.error('名前は必須です');
             return;
         }
         if (editing.id) {
@@ -32,7 +32,6 @@ export function StaffMasterView() {
         } else {
             addMasterStaff({
                 name: editing.name,
-                role: editing.role,
                 dayRate: editing.dayRate || 0,
                 email: editing.email || '',
                 phone: editing.phone || '',
@@ -89,7 +88,6 @@ export function StaffMasterView() {
                                 <TableHeader>
                                     <TableRow className="bg-muted/50">
                                         <TableHead>名前</TableHead>
-                                        <TableHead>役割</TableHead>
                                         <TableHead className="text-right">日当</TableHead>
                                         <TableHead>Email</TableHead>
                                         <TableHead className="w-[100px]"></TableHead>
@@ -99,7 +97,6 @@ export function StaffMasterView() {
                                     {masterStaff.map((s) => (
                                         <TableRow key={s.id}>
                                             <TableCell className="font-medium">{s.name}</TableCell>
-                                            <TableCell className="text-muted-foreground">{s.role}</TableCell>
                                             <TableCell className="text-right font-mono">
                                                 ¥{s.dayRate.toLocaleString()}
                                             </TableCell>
@@ -148,15 +145,6 @@ export function StaffMasterView() {
                                 value={editing?.name || ''}
                                 onChange={(e) => setEditing(p => ({ ...p, name: e.target.value }))}
                                 placeholder="山田 太郎"
-                            />
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label className="text-right">役割 *</Label>
-                            <Input
-                                className="col-span-3"
-                                value={editing?.role || ''}
-                                onChange={(e) => setEditing(p => ({ ...p, role: e.target.value }))}
-                                placeholder="Director, Camera, Sound..."
                             />
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">

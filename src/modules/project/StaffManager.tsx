@@ -17,23 +17,33 @@ export function StaffManager() {
     const { staff, addStaff, updateStaff, removeStaff } = useProjectStore();
     const { masterStaff } = useStaffMasterStore();
 
-    // State for master-select dialog
+    // Master select dialog
     const [isMasterSelectOpen, setIsMasterSelectOpen] = useState(false);
+    // checkedIds: which master staff are selected
     const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
+    // roles: per-master-id role input for this assignment
+    const [roles, setRoles] = useState<Record<string, string>>({});
 
-    // State for manual-add / edit dialog
+    // Manual add/edit dialog
     const [isManualDialogOpen, setIsManualDialogOpen] = useState(false);
     const [editingStaff, setEditingStaff] = useState<Partial<Staff> | null>(null);
 
-    // ---- Master select (checkbox) ----
+    // Match assigned staff to master by name only (role is project-specific now)
     const assignedMasterIds = new Set(
         staff
-            .map(s => masterStaff.find(m => m.name === s.name && m.role === s.role)?.id)
+            .map(s => masterStaff.find(m => m.name === s.name)?.id)
             .filter(Boolean) as string[]
     );
 
     const handleOpenMasterSelect = () => {
+        // Pre-fill roles from currently assigned staff
+        const prefilledRoles: Record<string, string> = {};
+        masterStaff.forEach(m => {
+            const assigned = staff.find(s => s.name === m.name);
+            if (assigned) prefilledRoles[m.id] = assigned.role;
+        });
         setCheckedIds(new Set(assignedMasterIds));
+        setRoles(prefilledRoles);
         setIsMasterSelectOpen(true);
     };
 
@@ -50,12 +60,26 @@ export function StaffManager() {
     };
 
     const handleApplyMasterSelect = () => {
-        // Add newly checked staff
+        // Validate: all checked staff must have a role
+        const missing = masterStaff.filter(m => checkedIds.has(m.id) && !roles[m.id]?.trim());
+        if (missing.length > 0) {
+            toast.error(`役割を入力してください: ${missing.map(m => m.name).join(', ')}`);
+            return;
+        }
+
+        // Add newly checked
         masterStaff.forEach(m => {
-            if (checkedIds.has(m.id) && !assignedMasterIds.has(m.id)) {
+            if (!checkedIds.has(m.id)) return;
+            const existing = staff.find(s => s.name === m.name);
+            if (existing) {
+                // Update role if changed
+                if (existing.role !== roles[m.id]) {
+                    updateStaff(existing.id, { role: roles[m.id] });
+                }
+            } else {
                 addStaff({
                     name: m.name,
-                    role: m.role,
+                    role: roles[m.id] || '',
                     dayRate: m.dayRate,
                     daysAssigned: 0,
                     email: m.email || '',
@@ -63,9 +87,9 @@ export function StaffManager() {
             }
         });
 
-        // Remove unchecked staff that were previously assigned from master
+        // Remove unchecked staff that came from master
         staff.forEach(s => {
-            const master = masterStaff.find(m => m.name === s.name && m.role === s.role);
+            const master = masterStaff.find(m => m.name === s.name);
             if (master && !checkedIds.has(master.id)) {
                 removeStaff(s.id);
             }
@@ -73,7 +97,7 @@ export function StaffManager() {
 
         const added = masterStaff.filter(m => checkedIds.has(m.id) && !assignedMasterIds.has(m.id)).length;
         const removed = staff.filter(s => {
-            const master = masterStaff.find(m => m.name === s.name && m.role === s.role);
+            const master = masterStaff.find(m => m.name === s.name);
             return master && !checkedIds.has(master.id);
         }).length;
 
@@ -83,15 +107,15 @@ export function StaffManager() {
         setIsMasterSelectOpen(false);
     };
 
-    // ---- Manual add/edit ----
+    // Manual add/edit
     const handleOpenManual = (s?: Staff) => {
         setEditingStaff(s ? { ...s } : { name: '', role: '', dayRate: 0, email: '' });
         setIsManualDialogOpen(true);
     };
 
     const handleSaveManual = () => {
-        if (!editingStaff?.name || !editingStaff?.role) {
-            toast.error('名前と役割は必須です');
+        if (!editingStaff?.name) {
+            toast.error('名前は必須です');
             return;
         }
         if (editingStaff.id) {
@@ -100,7 +124,7 @@ export function StaffManager() {
         } else {
             addStaff({
                 name: editingStaff.name,
-                role: editingStaff.role,
+                role: editingStaff.role || '',
                 dayRate: editingStaff.dayRate || 0,
                 daysAssigned: 0,
                 email: editingStaff.email || '',
@@ -111,8 +135,7 @@ export function StaffManager() {
         setEditingStaff(null);
     };
 
-    const isMasterStaff = (s: Staff) =>
-        masterStaff.some(m => m.name === s.name && m.role === s.role);
+    const isMasterStaff = (s: Staff) => masterStaff.some(m => m.name === s.name);
 
     return (
         <div className="space-y-4">
@@ -141,9 +164,9 @@ export function StaffManager() {
                     <TableHeader>
                         <TableRow className="bg-muted/50">
                             <TableHead>名前</TableHead>
-                            <TableHead>役割</TableHead>
+                            <TableHead>役割（今案件）</TableHead>
                             <TableHead className="text-right">日当</TableHead>
-                            <TableHead className="w-[110px]"></TableHead>
+                            <TableHead className="w-[90px]"></TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -164,7 +187,9 @@ export function StaffManager() {
                                             )}
                                         </div>
                                     </TableCell>
-                                    <TableCell className="text-muted-foreground">{s.role}</TableCell>
+                                    <TableCell className="text-muted-foreground">
+                                        {s.role || <span className="text-muted-foreground/50 italic text-xs">未設定</span>}
+                                    </TableCell>
                                     <TableCell className="text-right font-mono text-sm">
                                         ¥{s.dayRate.toLocaleString()}
                                     </TableCell>
@@ -197,31 +222,49 @@ export function StaffManager() {
                 </Table>
             </div>
 
-            {/* Master Select Dialog (Checkbox) */}
+            {/* Master Select Dialog */}
             <Dialog open={isMasterSelectOpen} onOpenChange={setIsMasterSelectOpen}>
-                <DialogContent className="max-w-md">
+                <DialogContent className="max-w-lg">
                     <DialogHeader>
                         <DialogTitle>スタッフをアサイン</DialogTitle>
                     </DialogHeader>
-                    <div className="py-2 max-h-[400px] overflow-y-auto space-y-1">
-                        {masterStaff.map((m) => (
-                            <label
-                                key={m.id}
-                                className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
-                            >
-                                <Checkbox
-                                    checked={checkedIds.has(m.id)}
-                                    onCheckedChange={() => toggleCheck(m.id)}
-                                />
-                                <div className="flex-1 min-w-0">
-                                    <div className="font-medium text-sm">{m.name}</div>
-                                    <div className="text-xs text-muted-foreground">{m.role}</div>
+                    <p className="text-xs text-muted-foreground -mt-2">
+                        チェックしたスタッフの今案件での役割を入力してください
+                    </p>
+                    <div className="py-1 max-h-[420px] overflow-y-auto space-y-2">
+                        {masterStaff.map((m) => {
+                            const checked = checkedIds.has(m.id);
+                            return (
+                                <div
+                                    key={m.id}
+                                    className={`rounded-lg border p-3 transition-colors ${checked ? 'border-primary/40 bg-primary/5' : 'border-transparent bg-muted/30'}`}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <Checkbox
+                                            checked={checked}
+                                            onCheckedChange={() => toggleCheck(m.id)}
+                                        />
+                                        <div className="flex-1 min-w-0">
+                                            <div className="font-medium text-sm">{m.name}</div>
+                                            <div className="text-xs text-muted-foreground font-mono">
+                                                ¥{m.dayRate.toLocaleString()}/日
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {checked && (
+                                        <div className="mt-2 ml-7">
+                                            <Input
+                                                className="h-7 text-sm"
+                                                placeholder="今案件での役割（例: Camera, Director...）"
+                                                value={roles[m.id] || ''}
+                                                onChange={(e) => setRoles(prev => ({ ...prev, [m.id]: e.target.value }))}
+                                                autoFocus={!roles[m.id]}
+                                            />
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="text-sm font-mono text-muted-foreground shrink-0">
-                                    ¥{m.dayRate.toLocaleString()}/日
-                                </div>
-                            </label>
-                        ))}
+                            );
+                        })}
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsMasterSelectOpen(false)}>
@@ -253,12 +296,12 @@ export function StaffManager() {
                             />
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
-                            <Label className="text-right">役割 *</Label>
+                            <Label className="text-right">役割</Label>
                             <Input
                                 className="col-span-3"
                                 value={editingStaff?.role || ''}
                                 onChange={(e) => setEditingStaff(p => ({ ...p, role: e.target.value }))}
-                                placeholder="Director, Camera, Sound..."
+                                placeholder="今案件での役割（例: Camera）"
                             />
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
