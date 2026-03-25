@@ -60,41 +60,58 @@ export function DocumentPreview() {
         try {
             const el = contentRef.current;
 
-            // Use the full scroll dimensions (not clipped by viewport/overflow)
-            const captureW = el.scrollWidth;
-            const captureH = el.scrollHeight;
+            // --- 1. Temporarily expand element to full A4-friendly width ---
+            // overflow:hidden + flex layout limits el.scrollWidth to visible width,
+            // so we must directly set inline styles and wait for browser re-layout.
+            const savedOverflow = el.style.overflow;
+            const savedWidth = el.style.width;
+            const savedMaxWidth = el.style.maxWidth;
+            const savedPosition = el.style.position;
+            const savedMinHeight = el.style.minHeight;
 
+            el.style.overflow = 'visible';
+            el.style.width = '900px';
+            el.style.maxWidth = 'none';
+            el.style.position = 'relative';
+            el.style.minHeight = 'auto';
+
+            // Wait two animation frames for browser to reflow
+            await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+
+            const captureW = el.offsetWidth;   // should now be 900
+            const captureH = el.scrollHeight;  // full content height
+
+            // --- 2. Capture at expanded dimensions ---
             const dataUrl = await toPng(el, {
                 quality: 1,
                 pixelRatio: 2,
                 backgroundColor: '#ffffff',
-                // Override styles to capture full content without clipping
-                style: {
-                    overflow: 'visible',
-                    width: `${captureW}px`,
-                    height: `${captureH}px`,
-                    maxWidth: 'none',
-                },
                 width: captureW,
                 height: captureH,
             });
 
-            // A4 in mm
-            const A4_W = 210;
-            const A4_H = 297;
-            const MARGIN = 10;
+            // --- 3. Restore original styles ---
+            el.style.overflow = savedOverflow;
+            el.style.width = savedWidth;
+            el.style.maxWidth = savedMaxWidth;
+            el.style.position = savedPosition;
+            el.style.minHeight = savedMinHeight;
+
+            // --- 4. Generate multi-page A4 PDF ---
+            const A4_W = 210;  // mm
+            const A4_H = 297;  // mm
+            const MARGIN = 10; // mm
             const printW = A4_W - MARGIN * 2; // 190mm
 
-            // Convert px → mm (96 dpi: 1px = 0.264583mm), then scale to fit A4 width
+            // 96dpi: 1px = 0.264583mm
             const PX_TO_MM = 0.264583;
-            const captureWmm = captureW * PX_TO_MM;
-            const captureHmm = captureH * PX_TO_MM;
-            const scale = printW / captureWmm;
-            const scaledHmm = captureHmm * scale;
-
+            const imgWmm = captureW * PX_TO_MM;
+            const imgHmm = captureH * PX_TO_MM;
+            const scale = printW / imgWmm;
+            const scaledHmm = imgHmm * scale;
             const pageContentH = A4_H - MARGIN * 2;
-            const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
+            const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
             let page = 0;
             let yDrawn = 0;
             while (yDrawn < scaledHmm) {
@@ -108,6 +125,12 @@ export function DocumentPreview() {
             toast.success('PDFを書き出しました');
         } catch (e) {
             console.error(e);
+            // Restore styles even on error
+            if (contentRef.current) {
+                contentRef.current.style.overflow = '';
+                contentRef.current.style.width = '';
+                contentRef.current.style.maxWidth = '';
+            }
             toast.error('PDF書き出しに失敗しました');
         } finally {
             setIsExportingPdf(false);

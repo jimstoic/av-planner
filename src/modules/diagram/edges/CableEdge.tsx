@@ -1,8 +1,22 @@
 'use client';
 
-import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath, type EdgeProps, useReactFlow } from '@xyflow/react';
+import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath, type EdgeProps } from '@xyflow/react';
 import { useProjectStore } from '@/store/projectStore';
-import { Badge } from '@/components/ui/badge';
+
+// Cable type → color mapping (matching standard AV industry color conventions)
+const CABLE_COLORS: Record<string, string> = {
+    HDMI:    '#3b82f6', // blue
+    SDI:     '#22c55e', // green
+    XLR:     '#ef4444', // red
+    LAN:     '#f97316', // orange
+    Power:   '#eab308', // yellow
+    Optical: '#a855f7', // purple
+    TRS:     '#ec4899', // pink
+    RCA:     '#06b6d4', // cyan
+    Signal:  '#94a3b8', // slate
+};
+
+const DEFAULT_COLOR = '#94a3b8';
 
 export default function CableEdge({
     id,
@@ -15,8 +29,9 @@ export default function CableEdge({
     style = {},
     markerEnd,
     data,
+    selected,
 }: EdgeProps) {
-    const { updateEdgeData, setEditingEdgeId } = useProjectStore();
+    const { setEditingEdgeId } = useProjectStore();
 
     const [edgePath, labelX, labelY] = getSmoothStepPath({
         sourceX,
@@ -25,20 +40,28 @@ export default function CableEdge({
         targetX,
         targetY,
         targetPosition,
-        borderRadius: 6,
+        borderRadius: 8,
     });
 
     const length = (data?.length as string) || '1m';
-    const type = (data?.type as string) || '';
+    const type = (data?.type as string) || 'Signal';
+    const cableColor = CABLE_COLORS[type] ?? DEFAULT_COLOR;
 
-    const onEdgeClick = (evt: React.MouseEvent) => {
+    const edgeStyle = {
+        ...style,
+        stroke: cableColor,
+        strokeWidth: selected ? 3 : 2,
+        opacity: selected ? 1 : 0.85,
+    };
+
+    const onBadgeClick = (evt: React.MouseEvent) => {
         evt.stopPropagation();
         setEditingEdgeId(id);
     };
 
     return (
         <>
-            <BaseEdge path={edgePath} markerEnd={markerEnd} style={style} />
+            <BaseEdge path={edgePath} markerEnd={markerEnd} style={edgeStyle} />
             <EdgeLabelRenderer>
                 <div
                     style={{
@@ -48,14 +71,18 @@ export default function CableEdge({
                     }}
                     className="nopan"
                 >
-                    <Badge
-                        variant="secondary"
-                        className="bg-background/90 hover:bg-background text-[10px] px-1.5 py-0 h-5 cursor-pointer border border-border shadow-sm rounded-full select-none whitespace-nowrap"
-                        onClick={onEdgeClick}
-                        title="Click to change cable length"
+                    <button
+                        onClick={onBadgeClick}
+                        className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium border shadow-sm select-none whitespace-nowrap leading-none bg-white/95 hover:bg-white transition-colors"
+                        style={{ borderColor: cableColor, color: cableColor }}
+                        title="クリックでケーブル設定を変更"
                     >
+                        <span
+                            className="w-1.5 h-1.5 rounded-full shrink-0"
+                            style={{ backgroundColor: cableColor }}
+                        />
                         {length} {type}
-                    </Badge>
+                    </button>
                 </div>
             </EdgeLabelRenderer>
         </>
