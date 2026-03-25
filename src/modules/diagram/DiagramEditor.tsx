@@ -82,6 +82,7 @@ function DiagramEditorContent() {
     const [currentEdgeLength, setCurrentEdgeLength] = useState("1m");
     const [currentEdgeType, setCurrentEdgeType] = useState("HDMI");
     const [isEdgeDialogOpen, setIsEdgeDialogOpen] = useState(false);
+    const clipboardRef = useRef<Node[]>([]);
 
     // Artboard node: managed separately, not persisted in store
     const artboardNode: Node | null = useMemo(() => {
@@ -120,6 +121,61 @@ function DiagramEditorContent() {
             setIsEdgeDialogOpen(false);
         }
     }, [editingEdgeId, edges]);
+
+    // Keyboard shortcuts: Ctrl+C copy, Ctrl+V paste, Ctrl+D duplicate
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
+            const ctrl = e.metaKey || e.ctrlKey;
+            if (!ctrl) return;
+
+            if (e.key === 'c') {
+                const selected = getNodes().filter(n => n.selected && n.id !== ARTBOARD_NODE_ID);
+                if (selected.length > 0) {
+                    clipboardRef.current = selected;
+                    toast.success(`${selected.length}個のノードをコピーしました`);
+                }
+            }
+
+            if (e.key === 'v') {
+                const cb = clipboardRef.current;
+                if (cb.length > 0) {
+                    const OFFSET = 24;
+                    cb.forEach(n => {
+                        addNode({
+                            id: `node-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+                            type: n.type,
+                            position: { x: n.position.x + OFFSET, y: n.position.y + OFFSET },
+                            data: { ...n.data as object },
+                            ...(n.style ? { style: n.style } : {}),
+                        } as Node);
+                    });
+                    toast.success(`${cb.length}個のノードをペーストしました`);
+                }
+            }
+
+            if (e.key === 'd') {
+                e.preventDefault();
+                const selected = getNodes().filter(n => n.selected && n.id !== ARTBOARD_NODE_ID);
+                if (selected.length > 0) {
+                    const OFFSET = 20;
+                    selected.forEach(n => {
+                        addNode({
+                            id: `node-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+                            type: n.type,
+                            position: { x: n.position.x + OFFSET, y: n.position.y + OFFSET },
+                            data: { ...n.data as object },
+                            ...(n.style ? { style: n.style } : {}),
+                        } as Node);
+                    });
+                    toast.success(`${selected.length}個複製しました`);
+                }
+            }
+        };
+
+        document.addEventListener('keydown', handleKeyDown);
+        return () => document.removeEventListener('keydown', handleKeyDown);
+    }, [getNodes, addNode]);
 
     const handleDialogClose = (open: boolean) => {
         setIsEdgeDialogOpen(open);

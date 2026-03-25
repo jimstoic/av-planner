@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, Save, FolderOpen, RefreshCw, Loader2, User, Download, Users } from "lucide-react";
+import { Calendar as CalendarIcon, Save, FolderOpen, RefreshCw, Loader2, User, Download, Users, Wifi } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { driveService } from "@/services/driveService";
 import { useSession } from "next-auth/react";
@@ -138,9 +138,28 @@ export function ProjectInfoView() {
             toast.success("プロジェクトを保存しました");
         } catch (e) {
             console.error(e);
-            toast.error("保存に失敗しました");
+            const msg = e instanceof Error ? e.message : String(e);
+            toast.error(`保存に失敗しました: ${msg}`, { duration: 8000 });
         } finally {
             setIsSaving(false);
+        }
+    };
+
+    const handleTestDrive = async () => {
+        if (!session?.accessToken) {
+            toast.error('Googleアカウントでログインしていません（accessToken なし）');
+            return;
+        }
+        const toastId = toast.loading('Drive接続をテスト中...');
+        try {
+            const result = await driveService.searchFiles(session.accessToken, '');
+            toast.success(
+                `Drive接続 OK — ${result.files?.length ?? 0} 件取得（フォルダID: ${process.env.NEXT_PUBLIC_TEAM_FOLDER_ID || '未設定'}）`,
+                { id: toastId, duration: 6000 }
+            );
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            toast.error(`Drive接続エラー: ${msg}`, { id: toastId, duration: 8000 });
         }
     };
 
@@ -381,9 +400,14 @@ export function ProjectInfoView() {
                                             className="font-mono text-xs bg-muted text-muted-foreground"
                                         />
                                     </div>
-                                    <p className="text-xs text-green-600 flex items-center mt-1">
-                                        <RefreshCw className="h-3 w-3 mr-1" /> チームフォルダ連携中
-                                    </p>
+                                    <div className="flex items-center justify-between mt-1">
+                                        <p className="text-xs text-green-600 flex items-center">
+                                            <RefreshCw className="h-3 w-3 mr-1" /> チームフォルダ連携中
+                                        </p>
+                                        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={handleTestDrive}>
+                                            <Wifi className="mr-1.5 h-3.5 w-3.5" /> 接続テスト
+                                        </Button>
+                                    </div>
                                 </div>
                             </div>
 
