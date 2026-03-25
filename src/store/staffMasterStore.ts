@@ -21,6 +21,7 @@ interface StaffMasterState {
     addMasterStaff: (staff: Omit<StaffMaster, 'id'>) => void;
     updateMasterStaff: (id: string, updates: Partial<StaffMaster>) => void;
     removeMasterStaff: (id: string) => void;
+    setMasterStaff: (staff: StaffMaster[]) => void;
 }
 
 function generateId(): string {
@@ -48,6 +49,8 @@ export const useStaffMasterStore = create<StaffMasterState>()(
             removeMasterStaff: (id) => set((state) => ({
                 masterStaff: state.masterStaff.filter(s => s.id !== id),
             })),
+
+            setMasterStaff: (staff) => set({ masterStaff: staff }),
         }),
         {
             name: 'av-planner-staff-master',

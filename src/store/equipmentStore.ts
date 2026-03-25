@@ -9,6 +9,7 @@ interface EquipmentState {
     updateEquipment: (id: string, item: Partial<Equipment>) => void;
     deleteEquipment: (id: string) => void;
     resetToDefault: () => void;
+    setEquipment: (items: Equipment[]) => void;
 }
 
 export const useEquipmentStore = create<EquipmentState>()(
@@ -31,6 +32,8 @@ export const useEquipmentStore = create<EquipmentState>()(
             })),
 
             resetToDefault: () => set({ equipment: MOCK_EQUIPMENT }),
+
+            setEquipment: (items) => set({ equipment: items }),
         }),
         {
             name: 'equipment-storage',

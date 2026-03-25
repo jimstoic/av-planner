@@ -27,6 +27,7 @@ import { useTheme } from "next-themes";
 import { SettingsView } from "@/modules/settings/SettingsView";
 import { StaffMasterView } from "@/modules/dashboard/StaffMasterView";
 import { useSettingsStore } from "@/store/settingsStore";
+import { useMasterDataSync } from "@/hooks/useMasterDataSync";
 
 // App Version
 const APP_VERSION = `v0.1.${process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ? process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA.substring(0, 7) : '0'}`;
@@ -36,6 +37,9 @@ export default function LandingPage() {
     const router = useRouter();
     const { loadProject, resetProject } = useProjectStore();
     const { setTheme } = useTheme();
+
+    // マスターデータをDriveと自動同期
+    useMasterDataSync();
 
     // View State
     const [view, setView] = useState<'dashboard' | 'open' | 'template' | 'library' | 'settings' | 'staff-master'>('dashboard');
