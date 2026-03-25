@@ -22,7 +22,6 @@ import {
 import { toPng } from 'html-to-image';
 import { jsPDF } from 'jspdf';
 import { FileImage, FileText, LayoutDashboard } from 'lucide-react';
-import ELK from 'elkjs';
 import '@xyflow/react/dist/style.css';
 import { toast } from 'sonner';
 
@@ -342,58 +341,77 @@ function DiagramEditorContent() {
         setEditingEdgeId(edge.id);
     }, [setEditingEdgeId]);
 
-    const handleAutoLayout = useCallback(async () => {
+    const handleAutoLayout = useCallback(() => {
         const currentNodes = nodes.filter(n => n.id !== ARTBOARD_NODE_ID);
         if (currentNodes.length === 0) return;
 
-        const elk = new ELK();
         const NODE_W = 160;
         const NODE_H_BASE = 60;
         const PORT_H = 14;
+        const GAP_X = 100;
+        const GAP_Y = 40;
 
-        const elkNodes = currentNodes.map(n => {
-            const conns = (n.data as any).connectors ?? [];
-            const height = Math.max(NODE_H_BASE, conns.length * PORT_H + 32);
-            return {
-                id: n.id,
-                width: NODE_W,
-                height,
-            };
+        // Build in-degree map and adjacency list
+        const inDegree = new Map<string, number>(currentNodes.map(n => [n.id, 0]));
+        const adj = new Map<string, string[]>(currentNodes.map(n => [n.id, []]));
+        for (const e of edges) {
+            if (inDegree.has(e.source) && inDegree.has(e.target)) {
+                inDegree.set(e.target, (inDegree.get(e.target) ?? 0) + 1);
+                adj.get(e.source)!.push(e.target);
+            }
+        }
+
+        // Kahn's algorithm for topological layering
+        const layer = new Map<string, number>();
+        const queue = currentNodes.filter(n => inDegree.get(n.id) === 0).map(n => n.id);
+        queue.forEach(id => layer.set(id, 0));
+
+        let head = 0;
+        while (head < queue.length) {
+            const cur = queue[head++];
+            const curLayer = layer.get(cur) ?? 0;
+            for (const next of adj.get(cur) ?? []) {
+                const nextLayer = Math.max(layer.get(next) ?? 0, curLayer + 1);
+                layer.set(next, nextLayer);
+                inDegree.set(next, (inDegree.get(next) ?? 1) - 1);
+                if (inDegree.get(next) === 0) queue.push(next);
+            }
+        }
+        // Nodes not reached (cycles) get layer 0
+        currentNodes.forEach(n => { if (!layer.has(n.id)) layer.set(n.id, 0); });
+
+        // Group nodes by layer, compute x/y positions
+        const byLayer = new Map<number, string[]>();
+        for (const [id, l] of layer) {
+            if (!byLayer.has(l)) byLayer.set(l, []);
+            byLayer.get(l)!.push(id);
+        }
+
+        const nodeHeightMap = new Map<string, number>(
+            currentNodes.map(n => {
+                const conns = (n.data as any).connectors ?? [];
+                return [n.id, Math.max(NODE_H_BASE, conns.length * PORT_H + 32)];
+            })
+        );
+
+        const positionMap = new Map<string, { x: number; y: number }>();
+        const sortedLayers = [...byLayer.keys()].sort((a, b) => a - b);
+
+        sortedLayers.forEach(l => {
+            const ids = byLayer.get(l)!;
+            const x = l * (NODE_W + GAP_X);
+            let y = 0;
+            ids.forEach(id => {
+                positionMap.set(id, { x, y });
+                y += (nodeHeightMap.get(id) ?? NODE_H_BASE) + GAP_Y;
+            });
         });
 
-        const elkEdges = edges.map(e => ({
-            id: e.id,
-            sources: [e.source],
-            targets: [e.target],
+        setNodes(nodes.map(n => {
+            const pos = positionMap.get(n.id);
+            return pos ? { ...n, position: pos } : n;
         }));
-
-        const graph = {
-            id: 'root',
-            layoutOptions: {
-                'elk.algorithm': 'layered',
-                'elk.direction': 'RIGHT',
-                'elk.spacing.nodeNode': '60',
-                'elk.layered.spacing.nodeNodeBetweenLayers': '100',
-                'elk.layered.nodePlacement.strategy': 'BRANDES_KOEPF',
-            },
-            children: elkNodes,
-            edges: elkEdges,
-        };
-
-        try {
-            const result = await elk.layout(graph);
-            const positionMap = new Map(
-                (result.children ?? []).map(n => [n.id, { x: n.x ?? 0, y: n.y ?? 0 }])
-            );
-            setNodes(nodes.map(n => {
-                const pos = positionMap.get(n.id);
-                return pos ? { ...n, position: pos } : n;
-            }));
-            toast.success('レイアウトを最適化しました');
-        } catch (e) {
-            console.error(e);
-            toast.error('レイアウトの最適化に失敗しました');
-        }
+        toast.success('レイアウトを最適化しました');
     }, [nodes, edges, setNodes]);
 
     return (
