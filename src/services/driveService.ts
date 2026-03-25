@@ -77,34 +77,41 @@ export const driveService = {
         // Enforce Team Folder if set
         const targetParentId = parentId || process.env.NEXT_PUBLIC_TEAM_FOLDER_ID;
 
-        // Metadata
-        const metadata: any = {
-            name,
-            mimeType: 'application/json',
+        const doSave = async (withParent: boolean) => {
+            const metadata: any = { name, mimeType: 'application/json' };
+            if (withParent && targetParentId && !fileId) {
+                metadata.parents = [targetParentId];
+            }
+
+            const form = new FormData();
+            form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+            form.append('file', new Blob([JSON.stringify(content, null, 2)], { type: 'application/json' }));
+
+            let url = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&includeItemsFromAllDrives=true';
+            let method = 'POST';
+
+            if (fileId) {
+                url = `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart&supportsAllDrives=true&includeItemsFromAllDrives=true`;
+                method = 'PATCH';
+            }
+
+            return fetch(url, {
+                method,
+                headers: { Authorization: `Bearer ${accessToken}` },
+                body: form,
+            });
         };
-        if (targetParentId && !fileId) {
-            metadata.parents = [targetParentId];
+
+        let res = await doSave(true);
+
+        // 403 insufficientParentPermissions: retry without specifying a parent folder
+        if (res.status === 403 && !fileId) {
+            const errBody = await res.json().catch(() => ({}));
+            const reason = errBody?.error?.errors?.[0]?.reason;
+            if (reason === 'insufficientParentPermissions') {
+                res = await doSave(false);
+            }
         }
-
-        const form = new FormData();
-        form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-        form.append('file', new Blob([JSON.stringify(content, null, 2)], { type: 'application/json' }));
-
-        let url = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&includeItemsFromAllDrives=true';
-        let method = 'POST';
-
-        if (fileId) {
-            url = `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart&supportsAllDrives=true&includeItemsFromAllDrives=true`;
-            method = 'PATCH';
-        }
-
-        const res = await fetch(url, {
-            method,
-            headers: {
-                Authorization: `Bearer ${accessToken}`,
-            },
-            body: form,
-        });
 
         if (!res.ok) {
             if (res.status === 401) throw new DriveAuthError();
