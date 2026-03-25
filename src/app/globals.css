@@ -120,3 +120,45 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Print styles for multi-page A4 PDF */
+@media print {
+  @page {
+    size: A4;
+    margin: 15mm;
+  }
+
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 11pt !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  nav,
+  header,
+  aside,
+  footer,
+  button {
+    display: none !important;
+  }
+
+  /* Allow natural page breaks */
+  table {
+    page-break-inside: auto;
+  }
+
+  tr {
+    page-break-inside: avoid;
+  }
+
+  .break-inside-avoid {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  [class*="bg-slate-50"] {
+    background-color: #f8fafc !important;
+  }
+}

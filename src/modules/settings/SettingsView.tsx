@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
-import { Settings as SettingsIcon, Landmark, Cloud, Layout } from 'lucide-react';
+import { Settings as SettingsIcon, Landmark, Cloud, Layout, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export function SettingsView() {
@@ -17,8 +17,24 @@ export function SettingsView() {
         currency,
         defaultArtboardSize,
         defaultArtboardOrientation,
+        companyInfo,
         updateSettings
     } = useSettingsStore();
+
+    const updateCompanyField = (field: string, value: string) => {
+        updateSettings({
+            companyInfo: { ...companyInfo, [field]: value }
+        });
+    };
+
+    const updateBankField = (field: string, value: string) => {
+        updateSettings({
+            companyInfo: {
+                ...companyInfo,
+                bankInfo: { ...companyInfo.bankInfo!, [field]: value }
+            }
+        });
+    };
 
     return (
         <div className="space-y-8 max-w-4xl mx-auto p-4 md:p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -95,6 +111,84 @@ export function SettingsView() {
                                 />
                                 <span className="text-sm">横 (Landscape)</span>
                             </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Company Info */}
+                <Card className="md:col-span-2">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Building2 className="w-5 h-5 text-violet-500" /> 会社情報
+                        </CardTitle>
+                        <CardDescription>見積書・請求書のヘッダーに表示される情報です</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label>会社名</Label>
+                                <Input value={companyInfo.name} onChange={(e) => updateCompanyField('name', e.target.value)} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>郵便番号</Label>
+                                <Input value={companyInfo.zipCode} onChange={(e) => updateCompanyField('zipCode', e.target.value)} placeholder="〒000-0000" />
+                            </div>
+                            <div className="space-y-2 md:col-span-2">
+                                <Label>住所</Label>
+                                <Input value={companyInfo.address} onChange={(e) => updateCompanyField('address', e.target.value)} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>電話番号</Label>
+                                <Input value={companyInfo.tel} onChange={(e) => updateCompanyField('tel', e.target.value)} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>メールアドレス</Label>
+                                <Input value={companyInfo.email} onChange={(e) => updateCompanyField('email', e.target.value)} />
+                            </div>
+                            <div className="space-y-2 md:col-span-2">
+                                <Label>適格請求書発行事業者番号 (インボイス)</Label>
+                                <Input value={companyInfo.registrationNumber || ''} onChange={(e) => updateCompanyField('registrationNumber', e.target.value)} placeholder="T0000000000000" className="max-w-sm font-mono" />
+                            </div>
+                        </div>
+
+                        {/* Bank Info */}
+                        <div className="border-t pt-4">
+                            <h4 className="font-semibold text-sm mb-3 flex items-center gap-2">
+                                <Landmark className="w-4 h-4 text-blue-500" /> 振込先情報
+                                <span className="text-xs text-muted-foreground font-normal">（請求書に表示されます）</span>
+                            </h4>
+                            {companyInfo.bankInfo && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label>金融機関名</Label>
+                                        <Input value={companyInfo.bankInfo.bankName} onChange={(e) => updateBankField('bankName', e.target.value)} />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>支店名</Label>
+                                        <Input value={companyInfo.bankInfo.branchName} onChange={(e) => updateBankField('branchName', e.target.value)} />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>口座種別</Label>
+                                        <Select value={companyInfo.bankInfo.accountType} onValueChange={(val) => updateBankField('accountType', val)}>
+                                            <SelectTrigger className="max-w-[160px]">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="普通">普通</SelectItem>
+                                                <SelectItem value="当座">当座</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>口座番号</Label>
+                                        <Input value={companyInfo.bankInfo.accountNumber} onChange={(e) => updateBankField('accountNumber', e.target.value)} className="font-mono max-w-[200px]" />
+                                    </div>
+                                    <div className="space-y-2 md:col-span-2">
+                                        <Label>口座名義</Label>
+                                        <Input value={companyInfo.bankInfo.accountHolder} onChange={(e) => updateBankField('accountHolder', e.target.value)} className="max-w-sm" />
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </CardContent>
                 </Card>

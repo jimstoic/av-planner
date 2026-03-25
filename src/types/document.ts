@@ -15,6 +15,7 @@ export interface LineItem {
     description?: string;
     quantity: number;
     unit: string;              // '式', '日', '人日', '台', '本', 'セット' etc.
+    days: number;              // 日数 (default 1)
     unitPrice: number;
     taxCategory: TaxCategory;
     sortOrder: number;
@@ -51,6 +52,13 @@ export interface CompanyInfo {
     tel: string;
     email: string;
     registrationNumber?: string;  // インボイス制度の適格請求書発行事業者番号
+    bankInfo?: {
+        bankName: string;
+        branchName: string;
+        accountType: '普通' | '当座';
+        accountNumber: string;
+        accountHolder: string;
+    };
 }
 
 export interface QuotationDocument {
@@ -119,4 +127,11 @@ export const DEFAULT_COMPANY_INFO: CompanyInfo = {
     tel: '03-0000-0000',
     email: 'info@example.com',
     registrationNumber: 'T0000000000000',
+    bankInfo: {
+        bankName: '○○銀行',
+        branchName: '○○支店',
+        accountType: '普通',
+        accountNumber: '0000000',
+        accountHolder: 'カ)サンプル',
+    },
 };

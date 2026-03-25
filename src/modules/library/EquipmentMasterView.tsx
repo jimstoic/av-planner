@@ -12,6 +12,7 @@ import { Loader2, Plus, Pencil, Trash2, Save, CloudUpload, Search, Monitor, Box,
 import { equipmentService } from '@/services/equipmentService';
 import { Equipment } from '@/types/equipment';
 import { initialEquipment } from '@/data/initialEquipment';
+import { useProjectStore } from '@/store/projectStore';
 import { getCategoryColor } from '@/constants/colors';
 import { Badge } from '@/components/ui/badge';
 import { EquipmentForm } from '@/components/library/EquipmentForm';
@@ -19,6 +20,7 @@ import { EquipmentForm } from '@/components/library/EquipmentForm';
 
 export function EquipmentMasterView() {
     const { data: session } = useSession();
+    const syncNodeEquipment = useProjectStore(s => s.syncNodeEquipment);
     const [equipmentList, setEquipmentList] = useState<Equipment[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
@@ -125,13 +127,13 @@ export function EquipmentMasterView() {
     const handleSaveItem = (item: Equipment) => {
         setEquipmentList(prev => {
             if (item.id && prev.find(p => p.id === item.id)) {
-                // Update
                 return prev.map(p => p.id === item.id ? item : p);
             } else {
-                // Add
                 return [...prev, item];
             }
         });
+        // 配線図上のノードにも変更を反映
+        syncNodeEquipment(item);
         setIsDialogOpen(false);
         setEditingItem(null);
     };

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { Node, Edge, Connection, addEdge, OnNodesChange, OnEdgesChange, applyNodeChanges, applyEdgeChanges } from '@xyflow/react';
 import { recursiveDateParse } from '@/lib/utils';
+import { Equipment } from '@/types/equipment';
 
 export interface Staff {
     id: string;
@@ -104,6 +105,9 @@ interface ProjectActions {
     addScheduleItem: (item: Omit<ScheduleItem, 'id'>) => void;
     updateScheduleItem: (id: string, item: Partial<ScheduleItem>) => void;
     removeScheduleItem: (id: string) => void;
+
+    // Sync equipment changes to existing diagram nodes
+    syncNodeEquipment: (equipment: Equipment) => void;
 
     loadProject: (state: ProjectState) => void;
     resetProject: () => void;
@@ -267,6 +271,34 @@ export const useProjectStore = create<ProjectState & ProjectActions>((set, get) 
     removeScheduleItem: (id) => set((state) => ({
         schedule: (state.schedule || []).filter((s) => s.id !== id)
     })),
+
+    syncNodeEquipment: (equipment) => {
+        set(state => ({
+            nodes: state.nodes.map(node => {
+                if (node.data?.equipmentId !== equipment.id) return node;
+                let connectors: NonNullable<Equipment['connectors']> = equipment.connectors || [];
+                if (connectors.length === 0 && (equipment.inputPortCount > 0 || equipment.outputPortCount > 0)) {
+                    const inputs = Array.from({ length: equipment.inputPortCount || 0 }, (_, i) => ({
+                        id: `in-${i + 1}`, name: `In ${i + 1}`, type: 'Generic', direction: 'input' as const,
+                    }));
+                    const outputs = Array.from({ length: equipment.outputPortCount || 0 }, (_, i) => ({
+                        id: `out-${i + 1}`, name: `Out ${i + 1}`, type: 'Generic', direction: 'output' as const,
+                    }));
+                    connectors = [...inputs, ...outputs];
+                }
+                return {
+                    ...node,
+                    data: {
+                        ...node.data,
+                        ...equipment,
+                        label: equipment.name,
+                        equipmentId: equipment.id,
+                        connectors,
+                    }
+                };
+            })
+        }));
+    },
 
     onNodesChange: (changes) => {
         set({

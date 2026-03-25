@@ -77,7 +77,7 @@ export function DocumentEditor() {
         title: s.title,
         subtotal: s.items
             .filter(i => i.type === 'normal')
-            .reduce((sum, i) => sum + i.quantity * i.unitPrice, 0),
+            .reduce((sum, i) => sum + i.quantity * (i.days || 1) * i.unitPrice, 0),
     }));
 
     const subtotalGross = sectionTotals.reduce((sum, s) => sum + s.subtotal, 0);

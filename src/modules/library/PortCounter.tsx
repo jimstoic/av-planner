@@ -20,47 +20,53 @@ export function PortCounter({ label, countIn, countOut, onChange, type }: PortCo
 
             <div className="flex gap-4">
                 {/* IN Counter */}
-                <div className="flex items-center gap-1">
-                    <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-5 w-5"
-                        onClick={() => onChange(type, 'input', Math.max(0, countIn - 1))}
-                        disabled={countIn === 0}
-                    >
-                        <Minus className="h-3 w-3" />
-                    </Button>
-                    <span className="w-4 text-center text-xs tabular-nums text-muted-foreground">{countIn}</span>
-                    <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-5 w-5"
-                        onClick={() => onChange(type, 'input', countIn + 1)}
-                    >
-                        <Plus className="h-3 w-3" />
-                    </Button>
+                <div className="flex flex-col items-center gap-0.5">
+                    <span className="text-[9px] font-bold text-green-600 uppercase tracking-wider">IN</span>
+                    <div className="flex items-center gap-1">
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-5 w-5"
+                            onClick={() => onChange(type, 'input', Math.max(0, countIn - 1))}
+                            disabled={countIn === 0}
+                        >
+                            <Minus className="h-3 w-3" />
+                        </Button>
+                        <span className="w-4 text-center text-xs tabular-nums text-muted-foreground">{countIn}</span>
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-5 w-5"
+                            onClick={() => onChange(type, 'input', countIn + 1)}
+                        >
+                            <Plus className="h-3 w-3" />
+                        </Button>
+                    </div>
                 </div>
 
                 {/* OUT Counter */}
-                <div className="flex items-center gap-1">
-                    <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-5 w-5"
-                        onClick={() => onChange(type, 'output', Math.max(0, countOut - 1))}
-                        disabled={countOut === 0}
-                    >
-                        <Minus className="h-3 w-3" />
-                    </Button>
-                    <span className="w-4 text-center text-xs tabular-nums text-muted-foreground">{countOut}</span>
-                    <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-5 w-5"
-                        onClick={() => onChange(type, 'output', countOut + 1)}
-                    >
-                        <Plus className="h-3 w-3" />
-                    </Button>
+                <div className="flex flex-col items-center gap-0.5">
+                    <span className="text-[9px] font-bold text-orange-600 uppercase tracking-wider">OUT</span>
+                    <div className="flex items-center gap-1">
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-5 w-5"
+                            onClick={() => onChange(type, 'output', Math.max(0, countOut - 1))}
+                            disabled={countOut === 0}
+                        >
+                            <Minus className="h-3 w-3" />
+                        </Button>
+                        <span className="w-4 text-center text-xs tabular-nums text-muted-foreground">{countOut}</span>
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-5 w-5"
+                            onClick={() => onChange(type, 'output', countOut + 1)}
+                        >
+                            <Plus className="h-3 w-3" />
+                        </Button>
+                    </div>
                 </div>
             </div>
         </div>

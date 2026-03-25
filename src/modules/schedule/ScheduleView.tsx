@@ -21,6 +21,7 @@ export function ScheduleView() {
     const {
         startDate,
         endDate,
+        setupDate,
         schedule,
         staff,
         addScheduleItem,
@@ -119,8 +120,41 @@ export function ScheduleView() {
         }
     };
 
+    // Auto-generated schedule items from project info (read-only)
+    const autoItems = useMemo(() => {
+        const items: (ScheduleItem & { isAuto: true })[] = [];
+        const setup = startOfDay(setupDate);
+        const start = startOfDay(startDate);
+        const end = startOfDay(endDate);
+
+        if (setup < start) {
+            items.push({
+                id: '__auto_setup__',
+                title: '仕込み (自動)',
+                type: 'setup',
+                start: setup,
+                end: addDays(start, -1),
+                description: 'プロジェクト情報から自動生成',
+                isAuto: true,
+            });
+        }
+        items.push({
+            id: '__auto_show__',
+            title: '本番 (自動)',
+            type: 'show',
+            start: start,
+            end: end,
+            description: 'プロジェクト情報から自動生成',
+            isAuto: true,
+        });
+        if (end < addDays(end, 0)) {
+            // バラシ日：本番翌日（同日の場合はスキップ）
+        }
+        return items;
+    }, [setupDate, startDate, endDate]);
+
     // Calculate timeline range
-    const timelineStart = useMemo(() => addDays(startOfDay(startDate), -1), [startDate]);
+    const timelineStart = useMemo(() => addDays(startOfDay(setupDate), -1), [setupDate]);
     const timelineEnd = useMemo(() => addDays(startOfDay(endDate), 1), [endDate]);
     const totalDays = differenceInDays(timelineEnd, timelineStart) + 1;
 
@@ -351,6 +385,28 @@ export function ScheduleView() {
                                     </div>
                                 </div>
                             </div>
+
+                            {/* Auto-generated items (read-only) */}
+                            {autoItems.map((item) => (
+                                <div key={item.id} className="flex border-b bg-muted/5 h-14 items-center relative group">
+                                    <div className="w-48 px-4 py-2 border-r shrink-0 sticky left-0 bg-muted/5 z-10">
+                                        <div className="font-medium text-sm truncate text-muted-foreground">{item.title}</div>
+                                        <div className="text-[10px] text-muted-foreground/60">プロジェクト情報から</div>
+                                    </div>
+                                    <div className="flex-1 relative h-full">
+                                        <div
+                                            className={cn(
+                                                "absolute top-2 bottom-2 rounded-md flex px-2 items-center text-xs font-semibold shadow-sm opacity-60 border",
+                                                item.type === 'setup' && "bg-amber-100 text-amber-800 border-amber-300",
+                                                item.type === 'show' && "bg-red-100 text-red-800 border-red-300",
+                                            )}
+                                            style={getPositionStyle(item.start, item.end)}
+                                        >
+                                            <span className="truncate">{item.type === 'setup' ? '仕込み' : '本番'}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
 
                             {/* Schedule Items */}
                             {schedule.map((item) => (

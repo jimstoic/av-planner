@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
     ReactFlow,
     ReactFlowProvider,
@@ -11,6 +11,7 @@ import {
     Background,
     MiniMap,
     Node,
+    NodeChange,
     Connection,
     Edge,
     useReactFlow,
@@ -25,8 +26,8 @@ import '@xyflow/react/dist/style.css';
 import { toast } from 'sonner';
 
 import EquipmentNode from './nodes/EquipmentNode';
+import { ArtboardNode } from './nodes/ArtboardNode';
 import CableEdge from './edges/CableEdge';
-import { Artboard } from './Artboard';
 import { useProjectStore } from '@/store/projectStore';
 import { Equipment } from '@/types/equipment';
 
@@ -49,8 +50,11 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 
+const ARTBOARD_NODE_ID = '__artboard__';
+
 const nodeTypes: NodeTypes = {
     equipment: EquipmentNode,
+    artboard: ArtboardNode,
 };
 
 const edgeTypes = {
@@ -78,6 +82,31 @@ function DiagramEditorContent() {
     const [currentEdgeLength, setCurrentEdgeLength] = useState("1m");
     const [currentEdgeType, setCurrentEdgeType] = useState("HDMI");
     const [isEdgeDialogOpen, setIsEdgeDialogOpen] = useState(false);
+
+    // Artboard node: managed separately, not persisted in store
+    const artboardNode: Node | null = useMemo(() => {
+        if (!artboard?.enabled) return null;
+        return {
+            id: ARTBOARD_NODE_ID,
+            type: 'artboard',
+            position: { x: 0, y: 0 },
+            data: { size: artboard.size, orientation: artboard.orientation },
+            draggable: false,
+            selectable: false,
+            deletable: false,
+            zIndex: -1,
+        };
+    }, [artboard?.enabled, artboard?.size, artboard?.orientation]);
+
+    const displayNodes = useMemo(
+        () => artboardNode ? [artboardNode, ...nodes] : nodes,
+        [artboardNode, nodes]
+    );
+
+    // Filter out artboard node changes to prevent store corruption
+    const handleNodesChange = useCallback((changes: NodeChange[]) => {
+        onNodesChange(changes.filter((c) => (c as any).id !== ARTBOARD_NODE_ID));
+    }, [onNodesChange]);
 
     useEffect(() => {
         if (editingEdgeId) {
@@ -110,7 +139,7 @@ function DiagramEditorContent() {
 
     const handleExport = async (format: 'png' | 'pdf') => {
         if (!reactFlowWrapper.current) return;
-        if (getNodes().length === 0) {
+        if (getNodes().filter(n => n.id !== ARTBOARD_NODE_ID).length === 0) {
             toast.error("エクスポートするノードがありません");
             return;
         }
@@ -239,9 +268,9 @@ function DiagramEditorContent() {
     return (
         <div ref={reactFlowWrapper} className="h-full w-full">
             <ReactFlow
-                nodes={nodes}
+                nodes={displayNodes}
                 edges={edges}
-                onNodesChange={onNodesChange}
+                onNodesChange={handleNodesChange}
                 onEdgesChange={onEdgesChange}
                 onConnect={onConnectWrapper}
                 onEdgeClick={onEdgeClick}
@@ -253,11 +282,6 @@ function DiagramEditorContent() {
                 snapToGrid
                 colorMode="light"
             >
-                <Artboard
-                    enabled={artboard?.enabled || false}
-                    size={artboard?.size || 'A4'}
-                    orientation={artboard?.orientation || 'landscape'}
-                />
                 <Background color="#eee" gap={16} />
                 <Controls />
                 <MiniMap />

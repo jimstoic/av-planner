@@ -12,7 +12,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useSession, signOut, signIn } from "next-auth/react";
-import { driveService } from "@/services/driveService";
+import { driveService, DriveAuthError } from "@/services/driveService";
 import { toast } from "sonner";
 import { useProjectStore } from "@/store/projectStore";
 import { Badge } from '@/components/ui/badge';
@@ -94,7 +94,14 @@ export function Header() {
             toast.success("Saved to Google Drive!", { id: toastId });
         } catch (error) {
             console.error(error);
-            toast.error("Failed to save to Drive", { id: toastId });
+            if (error instanceof DriveAuthError) {
+                toast.error("セッションが期限切れです。再ログインしてください。", {
+                    id: toastId,
+                    action: { label: '再ログイン', onClick: () => signIn('google') },
+                });
+            } else {
+                toast.error("Driveへの保存に失敗しました", { id: toastId });
+            }
         }
     };
 

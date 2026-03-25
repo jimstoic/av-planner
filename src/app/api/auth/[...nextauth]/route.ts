@@ -41,25 +41,63 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     );
 }
 
+async function refreshAccessToken(token: any) {
+    try {
+        const res = await fetch("https://oauth2.googleapis.com/token", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({
+                client_id: process.env.GOOGLE_CLIENT_ID!,
+                client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+                grant_type: "refresh_token",
+                refresh_token: token.refreshToken,
+            }),
+        });
+        const refreshed = await res.json();
+        if (!res.ok) throw refreshed;
+        return {
+            ...token,
+            accessToken: refreshed.access_token,
+            accessTokenExpires: Date.now() + refreshed.expires_in * 1000,
+            refreshToken: refreshed.refresh_token ?? token.refreshToken,
+            error: undefined,
+        };
+    } catch (error) {
+        return { ...token, error: "RefreshAccessTokenError" };
+    }
+}
+
 const handler = NextAuth({
     providers,
     callbacks: {
         async signIn({ account, profile }) {
             if (account?.provider === "google") {
-                // Restrict to @fleeeet.com domain
                 return profile?.email?.endsWith("@fleeeet.com") || false;
             }
             return true;
         },
         async jwt({ token, account }) {
+            // Initial sign in — store tokens and expiry
             if (account) {
-                token.accessToken = account.access_token;
+                return {
+                    ...token,
+                    accessToken: account.access_token,
+                    refreshToken: account.refresh_token,
+                    accessTokenExpires: account.expires_at ? account.expires_at * 1000 : Date.now() + 3600 * 1000,
+                };
             }
-            return token;
+            // Return existing token if not expired (with 60s buffer)
+            if (Date.now() < (token.accessTokenExpires as number) - 60_000) {
+                return token;
+            }
+            // Token expired — try to refresh
+            return refreshAccessToken(token);
         },
         async session({ session, token }) {
             // @ts-ignore
             session.accessToken = token.accessToken;
+            // @ts-ignore
+            session.error = token.error;
             return session;
         },
     },

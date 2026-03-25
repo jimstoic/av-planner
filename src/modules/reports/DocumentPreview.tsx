@@ -7,11 +7,8 @@ import { QuotationDocument } from '@/types/document';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Download, FileText, Printer } from 'lucide-react';
-import { toPng } from 'html-to-image';
-import { jsPDF } from 'jspdf';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
 
 export function DocumentPreview() {
     const doc = useDocumentStore(s => s.getActiveDocument());
@@ -41,7 +38,7 @@ export function DocumentPreview() {
         title: s.title,
         subtotal: s.items
             .filter(i => i.type === 'normal')
-            .reduce((sum, i) => sum + i.quantity * i.unitPrice, 0),
+            .reduce((sum, i) => sum + i.quantity * (i.days || 1) * i.unitPrice, 0),
     }));
 
     const subtotalGross = sectionTotals.reduce((sum, s) => sum + s.subtotal, 0);
@@ -54,46 +51,14 @@ export function DocumentPreview() {
 
     const themeColor = doc.type === 'invoice' ? 'text-emerald-600' : 'text-blue-600';
 
-    const handleExportPDF = async () => {
-        if (!contentRef.current) return;
-        const toastId = toast.loading("高品質PDFを生成中...");
-
-        try {
-            const dataUrl = await toPng(contentRef.current, {
-                pixelRatio: 2,
-                backgroundColor: '#ffffff',
-                canvasWidth: 1100,
-                canvasHeight: (contentRef.current.scrollHeight * (1100 / contentRef.current.offsetWidth)),
-                style: {
-                    margin: '0',
-                    padding: '0',
-                    boxShadow: 'none',
-                    borderRadius: '0',
-                }
-            });
-
-            const pdf = new jsPDF('p', 'mm', 'a4');
-            const pageWidth = pdf.internal.pageSize.getWidth();
-            const pageHeight = pdf.internal.pageSize.getHeight();
-            const margin = 10;
-            const pdfWidth = pageWidth - (margin * 2);
-            const imgProps = pdf.getImageProperties(dataUrl);
-            const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-
-            pdf.addImage(dataUrl, 'PNG', margin, margin, pdfWidth, Math.min(pdfHeight, pageHeight - (margin * 2)));
-            pdf.save(`${doc.documentNumber}_${doc.type === 'invoice' ? '請求書' : '見積書'}.pdf`);
-
-            toast.success("PDFを保存しました", { id: toastId });
-        } catch (error) {
-            console.error(error);
-            toast.error("PDFの生成に失敗しました", { id: toastId });
-        }
+    const handleExportPDF = () => {
+        window.print();
     };
 
     const handleExportCSV = () => {
         try {
             const rows: (string | number)[][] = [
-                ['セクション', '品名', '数量', '単位', '単価', '金額'],
+                ['セクション', '品名', '数量', '単位', '日数', '単価', '金額'],
             ];
 
             doc.sections.forEach(section => {
@@ -104,26 +69,27 @@ export function DocumentPreview() {
                             item.name,
                             item.quantity,
                             item.unit,
+                            item.days || 1,
                             item.unitPrice,
-                            item.quantity * item.unitPrice,
+                            item.quantity * (item.days || 1) * item.unitPrice,
                         ]);
                     } else {
-                        rows.push([section.title, item.name, '', '', '', '']);
+                        rows.push([section.title, item.name, '', '', '', '', '']);
                     }
                 });
             });
 
             rows.push([]);
-            rows.push(['小計', '', '', '', '', subtotalGross]);
+            rows.push(['小計', '', '', '', '', '', subtotalGross]);
             if (doc.discountAmount > 0) {
                 rows.push([
                     `割引 (${doc.discountType === 'percent' ? doc.discountAmount + '%' : '定額'})`,
-                    '', '', '', '', -discountValue,
+                    '', '', '', '', '', -discountValue,
                 ]);
             }
-            rows.push(['税抜合計', '', '', '', '', totalBeforeTax]);
-            rows.push([`消費税 (${doc.taxRate}%)`, '', '', '', '', tax]);
-            rows.push(['合計額', '', '', '', '', grandTotal]);
+            rows.push(['税抜合計', '', '', '', '', '', totalBeforeTax]);
+            rows.push([`消費税 (${doc.taxRate}%)`, '', '', '', '', '', tax]);
+            rows.push(['合計額', '', '', '', '', '', grandTotal]);
 
             const csvContent = "data:text/csv;charset=utf-8,"
                 + rows.map(e => e.join(",")).join("\n");
@@ -245,9 +211,10 @@ export function DocumentPreview() {
                                         <thead>
                                             <tr className="border-b border-slate-200">
                                                 <th className="text-left py-2 font-bold text-slate-800">品名</th>
-                                                <th className="text-center py-2 font-bold text-slate-800 w-16">数量</th>
-                                                <th className="text-center py-2 font-bold text-slate-800 w-16">単位</th>
-                                                <th className="text-right py-2 font-bold text-slate-800 w-24">単価</th>
+                                                <th className="text-center py-2 font-bold text-slate-800 w-14">数量</th>
+                                                <th className="text-center py-2 font-bold text-slate-800 w-14">単位</th>
+                                                <th className="text-center py-2 font-bold text-slate-800 w-14">日数</th>
+                                                <th className="text-right py-2 font-bold text-slate-800 w-22">単価</th>
                                                 <th className="text-right py-2 font-bold text-slate-800 w-28">金額</th>
                                             </tr>
                                         </thead>
@@ -257,29 +224,27 @@ export function DocumentPreview() {
                                                 .map(item => (
                                                     <tr key={item.id} className="border-b border-slate-100">
                                                         {item.type === 'text' ? (
-                                                            <td colSpan={5} className="py-2 text-slate-500 italic">
+                                                            <td colSpan={6} className="py-2 text-slate-500 italic">
                                                                 {item.name}
                                                             </td>
                                                         ) : (
                                                             <>
                                                                 <td className="py-2">
                                                                     <div className="font-medium text-black">{item.name}</div>
-                                                                    {item.description && (
-                                                                        <div className="text-[10px] text-slate-400">{item.description}</div>
-                                                                    )}
                                                                 </td>
                                                                 <td className="text-center py-2">{item.quantity}</td>
                                                                 <td className="text-center py-2 text-slate-600">{item.unit}</td>
+                                                                <td className="text-center py-2">{item.days || 1}</td>
                                                                 <td className="text-right py-2">{currency}{item.unitPrice.toLocaleString()}</td>
                                                                 <td className="text-right py-2 font-semibold">
-                                                                    {currency}{(item.quantity * item.unitPrice).toLocaleString()}
+                                                                    {currency}{(item.quantity * (item.days || 1) * item.unitPrice).toLocaleString()}
                                                                 </td>
                                                             </>
                                                         )}
                                                     </tr>
                                                 ))}
                                             <tr className="bg-slate-50 font-bold border-t-2 border-slate-200">
-                                                <td colSpan={4} className="text-right py-2 pr-4">
+                                                <td colSpan={5} className="text-right py-2 pr-4">
                                                     {section.title} 小計
                                                 </td>
                                                 <td className="text-right py-2">
@@ -351,6 +316,41 @@ export function DocumentPreview() {
                                 )}
                             </div>
                         </div>
+
+                        {/* Bank Info for Invoices */}
+                        {doc.type === 'invoice' && doc.companyInfo.bankInfo && (
+                            <div className="pt-8 text-sm break-inside-avoid">
+                                <h4 className="font-bold text-black border-b border-slate-800 mb-2 pb-1 inline-block">
+                                    お振込先
+                                </h4>
+                                <div className="bg-slate-50 p-4 rounded border space-y-1">
+                                    <div className="flex gap-8">
+                                        <div>
+                                            <span className="text-slate-500 text-xs">金融機関:</span>
+                                            <span className="ml-2 font-medium text-black">{doc.companyInfo.bankInfo.bankName}</span>
+                                        </div>
+                                        <div>
+                                            <span className="text-slate-500 text-xs">支店:</span>
+                                            <span className="ml-2 font-medium text-black">{doc.companyInfo.bankInfo.branchName}</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-8">
+                                        <div>
+                                            <span className="text-slate-500 text-xs">口座種別:</span>
+                                            <span className="ml-2 font-medium text-black">{doc.companyInfo.bankInfo.accountType}</span>
+                                        </div>
+                                        <div>
+                                            <span className="text-slate-500 text-xs">口座番号:</span>
+                                            <span className="ml-2 font-medium text-black font-mono">{doc.companyInfo.bankInfo.accountNumber}</span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <span className="text-slate-500 text-xs">口座名義:</span>
+                                        <span className="ml-2 font-medium text-black">{doc.companyInfo.bankInfo.accountHolder}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

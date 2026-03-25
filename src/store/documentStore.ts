@@ -47,6 +47,7 @@ function createLineItem(overrides: Partial<LineItem> = {}): LineItem {
         name: '',
         quantity: 1,
         unit: '式',
+        days: 1,
         unitPrice: 0,
         taxCategory: 'taxable',
         sortOrder: 0,
@@ -423,9 +424,10 @@ export const useDocumentStore = create<DocumentStoreState & DocumentStoreActions
                 // 1. Staff section
                 const staffItems: LineItem[] = (project.staff || []).map((s, idx) =>
                     createLineItem({
-                        name: `${s.name}（${s.role}）`,
-                        quantity: s.daysAssigned || duration,
-                        unit: '人日',
+                        name: s.role || 'スタッフ',
+                        quantity: 1,
+                        unit: '人',
+                        days: s.daysAssigned || duration,
                         unitPrice: s.dayRate,
                         sourceType: 'staff',
                         sourceId: s.id,
@@ -445,6 +447,7 @@ export const useDocumentStore = create<DocumentStoreState & DocumentStoreActions
                         description: item.manufacturer,
                         quantity: Math.max(1, nodeCount),
                         unit: '台',
+                        days: duration,
                         unitPrice: item.dayRate || 0,
                         sourceType: 'equipment',
                         sourceId: item.id,

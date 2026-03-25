@@ -167,11 +167,11 @@ export function EquipmentForm({ initialData, onSave, onCancel, isDialog = false 
                             </div>
                             <div className="space-y-2">
                                 <label className="text-sm font-medium">在庫数</label>
-                                <Input type="number" min="0" value={currentItem.stockQuantity} onChange={e => setCurrentItem(prev => ({ ...prev, stockQuantity: Number(e.target.value) }))} placeholder="0" />
+                                <Input type="number" min="0" value={currentItem.stockQuantity || ''} onChange={e => setCurrentItem(prev => ({ ...prev, stockQuantity: e.target.value === '' ? 0 : Number(e.target.value) }))} placeholder="0" />
                             </div>
                             <div className="space-y-2">
                                 <label className="text-sm font-medium">日単価 (¥)</label>
-                                <Input type="number" min="0" value={currentItem.dayRate} onChange={e => setCurrentItem(prev => ({ ...prev, dayRate: Number(e.target.value) }))} placeholder="0" />
+                                <Input type="number" min="0" value={currentItem.dayRate || ''} onChange={e => setCurrentItem(prev => ({ ...prev, dayRate: e.target.value === '' ? 0 : Number(e.target.value) }))} placeholder="0" />
                             </div>
                         </div>
                         <div className="space-y-2">

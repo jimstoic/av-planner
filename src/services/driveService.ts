@@ -1,3 +1,10 @@
+export class DriveAuthError extends Error {
+    constructor() {
+        super('Drive認証エラー: セッションが期限切れです。再ログインしてください。');
+        this.name = 'DriveAuthError';
+    }
+}
+
 export const driveService = {
     /**
      * Search for files/folders in Drive
@@ -23,6 +30,7 @@ export const driveService = {
         });
 
         if (!res.ok) {
+            if (res.status === 401) throw new DriveAuthError();
             throw new Error(`Drive API Error: ${res.statusText}`);
         }
 
@@ -44,6 +52,7 @@ export const driveService = {
                 });
 
                 if (!res.ok) {
+                    if (res.status === 401) throw new DriveAuthError();
                     if (res.status === 403 || res.status === 429 || res.status >= 500) {
                         if (i < retries) {
                             await new Promise(r => setTimeout(r, 1000 * (i + 1)));
@@ -98,6 +107,7 @@ export const driveService = {
         });
 
         if (!res.ok) {
+            if (res.status === 401) throw new DriveAuthError();
             const err = await res.text();
             throw new Error(`Drive Upload Error: ${res.statusText} - ${err}`);
         }

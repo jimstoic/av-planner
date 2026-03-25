@@ -47,7 +47,7 @@ export function SectionEditor({
 
     const sectionSubtotal = section.items
         .filter(i => i.type === 'normal')
-        .reduce((sum, i) => sum + i.quantity * i.unitPrice, 0);
+        .reduce((sum, i) => sum + i.quantity * (i.days || 1) * i.unitPrice, 0);
 
     return (
         <div className="space-y-2">
@@ -106,10 +106,11 @@ export function SectionEditor({
                 <Table>
                     <TableHeader>
                         <TableRow className="hover:bg-transparent border-slate-200">
-                            <TableHead className="text-slate-800 font-bold w-[40%]">内容</TableHead>
-                            <TableHead className="text-center text-slate-800 font-bold w-20">数量</TableHead>
-                            <TableHead className="text-center text-slate-800 font-bold w-20">単位</TableHead>
-                            <TableHead className="text-right text-slate-800 font-bold w-28">単価</TableHead>
+                            <TableHead className="text-slate-800 font-bold w-[35%]">内容</TableHead>
+                            <TableHead className="text-center text-slate-800 font-bold w-16">数量</TableHead>
+                            <TableHead className="text-center text-slate-800 font-bold w-16">単位</TableHead>
+                            <TableHead className="text-center text-slate-800 font-bold w-16">日数</TableHead>
+                            <TableHead className="text-right text-slate-800 font-bold w-24">単価</TableHead>
                             <TableHead className="text-right text-slate-800 font-bold w-28">金額</TableHead>
                             {!readOnly && (
                                 <TableHead className="w-10 print:hidden"></TableHead>
@@ -124,7 +125,7 @@ export function SectionEditor({
                                     {item.type === 'text' ? (
                                         // Text-only row
                                         <TableRow className="border-slate-100 hover:bg-slate-50 group">
-                                            <TableCell colSpan={readOnly ? 5 : 5} className="p-2">
+                                            <TableCell colSpan={readOnly ? 6 : 7} className="p-2">
                                                 <div className="flex items-center gap-2">
                                                     <AlignLeft className="h-3 w-3 text-slate-300 shrink-0" />
                                                     {readOnly ? (
@@ -162,9 +163,6 @@ export function SectionEditor({
                                                 {readOnly ? (
                                                     <div>
                                                         <div className="font-medium text-black text-sm">{item.name}</div>
-                                                        {item.description && (
-                                                            <div className="text-[10px] text-slate-400 mt-0.5">{item.description}</div>
-                                                        )}
                                                     </div>
                                                 ) : (
                                                     <div>
@@ -175,14 +173,6 @@ export function SectionEditor({
                                                                 updateLineItem(docId, section.id, item.id, { name: e.target.value })
                                                             }
                                                             placeholder="品名を入力..."
-                                                        />
-                                                        <input
-                                                            className="w-full bg-transparent border-none focus:ring-0 text-[10px] text-slate-400 px-1 -ml-1 outline-none"
-                                                            value={item.description || ''}
-                                                            onChange={(e) =>
-                                                                updateLineItem(docId, section.id, item.id, { description: e.target.value })
-                                                            }
-                                                            placeholder="備考..."
                                                         />
                                                     </div>
                                                 )}
@@ -196,9 +186,9 @@ export function SectionEditor({
                                                     <input
                                                         type="number"
                                                         className="w-16 bg-transparent border-none focus:ring-1 focus:ring-blue-500 text-center rounded px-1 text-black outline-none"
-                                                        value={item.quantity}
+                                                        value={item.quantity || ''}
                                                         onChange={(e) =>
-                                                            updateLineItem(docId, section.id, item.id, { quantity: Number(e.target.value) })
+                                                            updateLineItem(docId, section.id, item.id, { quantity: e.target.value === '' ? 0 : Number(e.target.value) })
                                                         }
                                                     />
                                                 )}
@@ -229,6 +219,23 @@ export function SectionEditor({
                                                 )}
                                             </TableCell>
 
+                                            {/* Days */}
+                                            <TableCell className="text-center p-2">
+                                                {readOnly ? (
+                                                    <span>{item.days || 1}</span>
+                                                ) : (
+                                                    <input
+                                                        type="number"
+                                                        className="w-14 bg-transparent border-none focus:ring-1 focus:ring-blue-500 text-center rounded px-1 text-black outline-none"
+                                                        value={(item.days || 1) === 1 ? '' : item.days}
+                                                        onChange={(e) =>
+                                                            updateLineItem(docId, section.id, item.id, { days: e.target.value === '' ? 1 : Number(e.target.value) })
+                                                        }
+                                                        placeholder="1"
+                                                    />
+                                                )}
+                                            </TableCell>
+
                                             {/* Unit Price */}
                                             <TableCell className="text-right p-2">
                                                 {readOnly ? (
@@ -239,18 +246,19 @@ export function SectionEditor({
                                                         <input
                                                             type="number"
                                                             className="w-24 bg-transparent border-none focus:ring-1 focus:ring-blue-500 text-right rounded px-1 text-black outline-none"
-                                                            value={item.unitPrice}
+                                                            value={item.unitPrice || ''}
                                                             onChange={(e) =>
-                                                                updateLineItem(docId, section.id, item.id, { unitPrice: Number(e.target.value) })
+                                                                updateLineItem(docId, section.id, item.id, { unitPrice: e.target.value === '' ? 0 : Number(e.target.value) })
                                                             }
+                                                            placeholder="0"
                                                         />
                                                     </div>
                                                 )}
                                             </TableCell>
 
-                                            {/* Amount */}
+                                            {/* Amount (quantity × days × unitPrice) */}
                                             <TableCell className="text-right font-semibold p-2 text-black">
-                                                {currency}{(item.quantity * item.unitPrice).toLocaleString()}
+                                                {currency}{(item.quantity * (item.days || 1) * item.unitPrice).toLocaleString()}
                                             </TableCell>
 
                                             {/* Delete */}
@@ -273,7 +281,7 @@ export function SectionEditor({
 
                         {/* Subtotal */}
                         <TableRow className="bg-slate-50 font-bold border-t-2 border-slate-200">
-                            <TableCell colSpan={4} className="text-right p-2 text-sm">
+                            <TableCell colSpan={5} className="text-right p-2 text-sm">
                                 {section.title} 小計
                             </TableCell>
                             <TableCell className="text-right p-2 text-sm">

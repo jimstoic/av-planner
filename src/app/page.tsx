@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Plus, FileJson, LayoutDashboard, LogIn, Calendar, Box, Settings, LogOut, Moon, Sun, Monitor, User } from "lucide-react";
+import { Loader2, Plus, FileJson, LayoutDashboard, LogIn, Calendar, Box, Settings, LogOut, Moon, Sun, Monitor, Users } from "lucide-react";
 import { driveService } from "@/services/driveService";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +25,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { signOut } from "next-auth/react";
 import { useTheme } from "next-themes";
 import { SettingsView } from "@/modules/settings/SettingsView";
+import { StaffMasterView } from "@/modules/dashboard/StaffMasterView";
 import { useSettingsStore } from "@/store/settingsStore";
 
 // App Version
@@ -36,8 +37,8 @@ export default function LandingPage() {
     const { loadProject, resetProject } = useProjectStore();
     const { setTheme } = useTheme();
 
-    // View State: 'dashboard' | 'open' | 'template' | 'library' | 'settings'
-    const [view, setView] = useState<'dashboard' | 'open' | 'template' | 'library' | 'settings'>('dashboard');
+    // View State
+    const [view, setView] = useState<'dashboard' | 'open' | 'template' | 'library' | 'settings' | 'staff-master'>('dashboard');
 
     // State for Drive Files
     const [driveFiles, setDriveFiles] = useState<any[]>([]);
@@ -304,6 +305,17 @@ export default function LandingPage() {
                                         <CardDescription>共有の機材リストを管理・編集します</CardDescription>
                                     </CardHeader>
                                 </Card>
+
+                                {/* Option 6: Staff Master */}
+                                <Card className="hover:shadow-lg transition-all cursor-pointer border-2 hover:border-indigo-500/50 group" onClick={() => setView('staff-master')}>
+                                    <CardHeader className="text-center pb-2">
+                                        <div className="mx-auto bg-indigo-100 dark:bg-indigo-900/20 p-4 rounded-full w-20 h-20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                                            <Users className="w-10 h-10 text-indigo-600" />
+                                        </div>
+                                        <CardTitle>スタッフマスター</CardTitle>
+                                        <CardDescription>プロジェクト横断のスタッフ情報を管理します</CardDescription>
+                                    </CardHeader>
+                                </Card>
                             </div>
                         </div>
 
@@ -476,6 +488,17 @@ export default function LandingPage() {
                             </Button>
                         </div>
                         <SettingsView />
+                    </div>
+                )}
+
+                {view === 'staff-master' && (
+                    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                        <div className="flex items-center gap-4 border-b pb-4">
+                            <Button variant="ghost" onClick={() => setView('dashboard')}>
+                                ← 戻る
+                            </Button>
+                        </div>
+                        <StaffMasterView />
                     </div>
                 )}
             </main>
