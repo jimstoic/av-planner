@@ -337,6 +337,8 @@ function DiagramEditorContent() {
                 fitView
                 snapToGrid
                 colorMode="light"
+                elevateEdgesOnSelect
+                defaultEdgeOptions={{ zIndex: 1 }}
             >
                 <Background color="#eee" gap={16} />
                 <Controls />

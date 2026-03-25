@@ -58,38 +58,50 @@ export function DocumentPreview() {
         if (!contentRef.current || !doc) return;
         setIsExportingPdf(true);
         try {
-            const dataUrl = await toPng(contentRef.current, {
+            const el = contentRef.current;
+
+            // Use the full scroll dimensions (not clipped by viewport/overflow)
+            const captureW = el.scrollWidth;
+            const captureH = el.scrollHeight;
+
+            const dataUrl = await toPng(el, {
                 quality: 1,
                 pixelRatio: 2,
                 backgroundColor: '#ffffff',
+                // Override styles to capture full content without clipping
+                style: {
+                    overflow: 'visible',
+                    width: `${captureW}px`,
+                    height: `${captureH}px`,
+                    maxWidth: 'none',
+                },
+                width: captureW,
+                height: captureH,
             });
 
-            // A4 dimensions in mm
+            // A4 in mm
             const A4_W = 210;
             const A4_H = 297;
             const MARGIN = 10;
-            const contentW = A4_W - MARGIN * 2;
+            const printW = A4_W - MARGIN * 2; // 190mm
 
-            // Calculate rendered image height in mm
-            const imgEl = contentRef.current;
-            const imgHeightMM = (imgEl.offsetHeight / imgEl.offsetWidth) * contentW;
+            // Convert px → mm (96 dpi: 1px = 0.264583mm), then scale to fit A4 width
+            const PX_TO_MM = 0.264583;
+            const captureWmm = captureW * PX_TO_MM;
+            const captureHmm = captureH * PX_TO_MM;
+            const scale = printW / captureWmm;
+            const scaledHmm = captureHmm * scale;
+
             const pageContentH = A4_H - MARGIN * 2;
-
             const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
-            let pageCount = 0;
+            let page = 0;
             let yDrawn = 0;
-
-            while (yDrawn < imgHeightMM) {
-                if (pageCount > 0) pdf.addPage();
-                // Draw image offset so the correct portion appears on this page
-                pdf.addImage(dataUrl, 'PNG', MARGIN, MARGIN - yDrawn, contentW, imgHeightMM);
-                // Clip to page by drawing white rect over overflow (top of first page is fine)
-                if (pageCount === 0 && yDrawn === 0) {
-                    // nothing to clip on first page top
-                }
+            while (yDrawn < scaledHmm) {
+                if (page > 0) pdf.addPage();
+                pdf.addImage(dataUrl, 'PNG', MARGIN, MARGIN - yDrawn, printW, scaledHmm);
                 yDrawn += pageContentH;
-                pageCount++;
+                page++;
             }
 
             pdf.save(`${doc.documentNumber}.pdf`);

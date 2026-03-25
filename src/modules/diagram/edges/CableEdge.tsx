@@ -1,6 +1,6 @@
 'use client';
 
-import { BaseEdge, EdgeLabelRenderer, getBezierPath, type EdgeProps, useReactFlow } from '@xyflow/react';
+import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath, type EdgeProps, useReactFlow } from '@xyflow/react';
 import { useProjectStore } from '@/store/projectStore';
 import { Badge } from '@/components/ui/badge';
 
@@ -18,13 +18,14 @@ export default function CableEdge({
 }: EdgeProps) {
     const { updateEdgeData, setEditingEdgeId } = useProjectStore();
 
-    const [edgePath, labelX, labelY] = getBezierPath({
+    const [edgePath, labelX, labelY] = getSmoothStepPath({
         sourceX,
         sourceY,
         sourcePosition,
         targetX,
         targetY,
         targetPosition,
+        borderRadius: 6,
     });
 
     const length = (data?.length as string) || '1m';
