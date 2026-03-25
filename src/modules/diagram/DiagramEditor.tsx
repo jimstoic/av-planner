@@ -21,7 +21,8 @@ import {
 } from '@xyflow/react';
 import { toPng } from 'html-to-image';
 import { jsPDF } from 'jspdf';
-import { FileImage, FileText } from 'lucide-react';
+import { FileImage, FileText, LayoutDashboard } from 'lucide-react';
+import ELK from 'elkjs';
 import '@xyflow/react/dist/style.css';
 import { toast } from 'sonner';
 
@@ -72,6 +73,7 @@ function DiagramEditorContent() {
         onEdgesChange,
         onConnect,
         addNode,
+        setNodes,
         updateEdgeData,
         editingEdgeId,
         setEditingEdgeId,
@@ -103,6 +105,25 @@ function DiagramEditorContent() {
         () => artboardNode ? [artboardNode, ...nodes] : nodes,
         [artboardNode, nodes]
     );
+
+    // Compute parallel offsets for edges that share the same node pair
+    const PARALLEL_STEP = 16;
+    const edgesWithParallelOffset = useMemo(() => {
+        const groups = new Map<string, string[]>();
+        for (const edge of edges) {
+            const key = [edge.source, edge.target].sort().join('::');
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key)!.push(edge.id);
+        }
+        return edges.map(edge => {
+            const key = [edge.source, edge.target].sort().join('::');
+            const group = groups.get(key)!;
+            if (group.length <= 1) return edge;
+            const idx = group.indexOf(edge.id);
+            const offset = (idx - (group.length - 1) / 2) * PARALLEL_STEP;
+            return { ...edge, data: { ...(edge.data ?? {}), _parallelOffset: offset } };
+        });
+    }, [edges]);
 
     // Filter out artboard node changes to prevent store corruption
     const handleNodesChange = useCallback((changes: NodeChange[]) => {
@@ -321,11 +342,65 @@ function DiagramEditorContent() {
         setEditingEdgeId(edge.id);
     }, [setEditingEdgeId]);
 
+    const handleAutoLayout = useCallback(async () => {
+        const currentNodes = nodes.filter(n => n.id !== ARTBOARD_NODE_ID);
+        if (currentNodes.length === 0) return;
+
+        const elk = new ELK();
+        const NODE_W = 160;
+        const NODE_H_BASE = 60;
+        const PORT_H = 14;
+
+        const elkNodes = currentNodes.map(n => {
+            const conns = (n.data as any).connectors ?? [];
+            const height = Math.max(NODE_H_BASE, conns.length * PORT_H + 32);
+            return {
+                id: n.id,
+                width: NODE_W,
+                height,
+            };
+        });
+
+        const elkEdges = edges.map(e => ({
+            id: e.id,
+            sources: [e.source],
+            targets: [e.target],
+        }));
+
+        const graph = {
+            id: 'root',
+            layoutOptions: {
+                'elk.algorithm': 'layered',
+                'elk.direction': 'RIGHT',
+                'elk.spacing.nodeNode': '60',
+                'elk.layered.spacing.nodeNodeBetweenLayers': '100',
+                'elk.layered.nodePlacement.strategy': 'BRANDES_KOEPF',
+            },
+            children: elkNodes,
+            edges: elkEdges,
+        };
+
+        try {
+            const result = await elk.layout(graph);
+            const positionMap = new Map(
+                (result.children ?? []).map(n => [n.id, { x: n.x ?? 0, y: n.y ?? 0 }])
+            );
+            setNodes(nodes.map(n => {
+                const pos = positionMap.get(n.id);
+                return pos ? { ...n, position: pos } : n;
+            }));
+            toast.success('レイアウトを最適化しました');
+        } catch (e) {
+            console.error(e);
+            toast.error('レイアウトの最適化に失敗しました');
+        }
+    }, [nodes, edges, setNodes]);
+
     return (
         <div ref={reactFlowWrapper} className="h-full w-full">
             <ReactFlow
                 nodes={displayNodes}
-                edges={edges}
+                edges={edgesWithParallelOffset}
                 onNodesChange={handleNodesChange}
                 onEdgesChange={onEdgesChange}
                 onConnect={onConnectWrapper}
@@ -352,6 +427,9 @@ function DiagramEditorContent() {
                             <FileText className="mr-2 h-4 w-4" /> PDF
                         </Button>
                     </div>
+                    <Button variant="outline" size="sm" onClick={handleAutoLayout} className="w-full">
+                        <LayoutDashboard className="mr-2 h-4 w-4" /> 自動配置
+                    </Button>
 
                     <div className="flex flex-col gap-2">
                         <Label className="text-[10px] uppercase text-muted-foreground font-bold">Artboard Settings</Label>

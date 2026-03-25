@@ -1,6 +1,6 @@
 'use client';
 
-import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath, type EdgeProps } from '@xyflow/react';
+import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath, Position, type EdgeProps } from '@xyflow/react';
 import { useProjectStore } from '@/store/projectStore';
 
 // Cable type → color mapping (matching standard AV industry color conventions)
@@ -33,6 +33,16 @@ export default function CableEdge({
 }: EdgeProps) {
     const { setEditingEdgeId } = useProjectStore();
 
+    const length = (data?.length as string) || '1m';
+    const type = (data?.type as string) || 'Signal';
+    const parallelOffset = (data?._parallelOffset as number) || 0;
+    const cableColor = CABLE_COLORS[type] ?? DEFAULT_COLOR;
+
+    // Determine if edge is horizontal (left/right handles) to pick which axis to offset
+    const isHorizontal = sourcePosition === Position.Left || sourcePosition === Position.Right;
+    const midX = (sourceX + targetX) / 2;
+    const midY = (sourceY + targetY) / 2;
+
     const [edgePath, labelX, labelY] = getSmoothStepPath({
         sourceX,
         sourceY,
@@ -41,11 +51,9 @@ export default function CableEdge({
         targetY,
         targetPosition,
         borderRadius: 8,
+        centerX: isHorizontal ? midX : midX + parallelOffset,
+        centerY: isHorizontal ? midY + parallelOffset : midY,
     });
-
-    const length = (data?.length as string) || '1m';
-    const type = (data?.type as string) || 'Signal';
-    const cableColor = CABLE_COLORS[type] ?? DEFAULT_COLOR;
 
     const edgeStyle = {
         ...style,

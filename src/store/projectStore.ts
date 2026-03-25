@@ -81,6 +81,7 @@ interface ProjectActions {
     setDriveFolderName: (name: string) => void;
     updateMetadata: (data: Partial<ProjectState>) => void;
     updateEdgeData: (id: string, data: Record<string, unknown>) => void;
+    updateNodeData: (id: string, data: Record<string, unknown>) => void;
     setEditingEdgeId: (id: string | null) => void;
     updateQuotationSettings: (settings: Partial<{ taxRateOverride: number, discountAmount: number, discountType: 'flat' | 'percent', discountIncludedCategories: string[], remarks: string }>) => void;
     updateEquipmentOverride: (id: string, override: Partial<ProjectState['equipmentOverrides'][string]>) => void;
@@ -227,6 +228,17 @@ export const useProjectStore = create<ProjectState & ProjectActions>((set, get) 
                     return { ...edge, data: { ...edge.data, ...data } };
                 }
                 return edge;
+            }),
+        });
+    },
+
+    updateNodeData: (id, data) => {
+        set({
+            nodes: get().nodes.map((node) => {
+                if (node.id === id) {
+                    return { ...node, data: { ...node.data, ...data } };
+                }
+                return node;
             }),
         });
     },
