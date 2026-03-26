@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Calendar, Clock, User, Trash2, ChevronLeft, ChevronRight, Globe, Layers, HardDrive, FileJson } from 'lucide-react';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
@@ -73,7 +74,7 @@ export function ScheduleView() {
     const handleCreateProject = async () => {
         const token = getAccessToken();
         if (!token) {
-            alert("ログインが必要です");
+            toast.error("ログインが必要です");
             return;
         }
         if (!newProjectData.name) return;
@@ -118,7 +119,7 @@ export function ScheduleView() {
 
         } catch (e) {
             console.error(e);
-            alert("作成に失敗しました");
+            toast.error("プロジェクトの作成に失敗しました");
         }
     };
 

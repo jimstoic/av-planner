@@ -56,7 +56,7 @@ export interface ProjectState {
     // Quotation Settings
     taxRateOverride?: number;
     discountAmount: number;
-    discountType: 'flat' | 'percent';
+    discountType: 'fixed' | 'percent';
     discountIncludedCategories: string[]; // ['staff', 'equipment', 'production', 'other']
     remarks?: string;
     equipmentOverrides: Record<string, {
@@ -82,7 +82,7 @@ interface ProjectActions {
     updateEdgeData: (id: string, data: Record<string, unknown>) => void;
     updateNodeData: (id: string, data: Record<string, unknown>) => void;
     setEditingEdgeId: (id: string | null) => void;
-    updateQuotationSettings: (settings: Partial<{ taxRateOverride: number, discountAmount: number, discountType: 'flat' | 'percent', discountIncludedCategories: string[], remarks: string }>) => void;
+    updateQuotationSettings: (settings: Partial<{ taxRateOverride: number, discountAmount: number, discountType: 'fixed' | 'percent', discountIncludedCategories: string[], remarks: string }>) => void;
     updateEquipmentOverride: (id: string, override: Partial<ProjectState['equipmentOverrides'][string]>) => void;
 
     // Cost Actions

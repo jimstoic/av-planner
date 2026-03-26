@@ -434,8 +434,10 @@ export function ProjectInfoView() {
                                             id="new-member-email"
                                             onKeyDown={(e) => {
                                                 if (e.key === 'Enter') {
-                                                    const val = (e.target as HTMLInputElement).value;
-                                                    if (val && !members.includes(val)) {
+                                                    const val = (e.target as HTMLInputElement).value.trim();
+                                                    if (!val) return;
+                                                    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) { toast.error('有効なメールアドレスを入力してください'); return; }
+                                                    if (!members.includes(val)) {
                                                         updateMetadata({ members: [...members, val] });
                                                         (e.target as HTMLInputElement).value = '';
                                                         setIsDirty(true);
@@ -448,8 +450,10 @@ export function ProjectInfoView() {
                                             size="sm"
                                             onClick={() => {
                                                 const el = document.getElementById('new-member-email') as HTMLInputElement;
-                                                const val = el.value;
-                                                if (val && !members.includes(val)) {
+                                                const val = el.value.trim();
+                                                if (!val) return;
+                                                if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) { toast.error('有効なメールアドレスを入力してください'); return; }
+                                                if (!members.includes(val)) {
                                                     updateMetadata({ members: [...members, val] });
                                                     el.value = '';
                                                     setIsDirty(true);
