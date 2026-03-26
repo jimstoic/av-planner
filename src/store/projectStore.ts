@@ -113,8 +113,10 @@ interface ProjectActions {
     resetProject: () => void;
 }
 
+const newProjectId = () => crypto.randomUUID();
+
 const initialState: ProjectState = {
-    id: '1',
+    id: newProjectId(),
     nodes: [],
     edges: [],
     projectName: '',
@@ -176,7 +178,7 @@ export const useProjectStore = create<ProjectState & ProjectActions>((set, get) 
         set(parsedState);
     },
 
-    resetProject: () => set(initialState),
+    resetProject: () => set({ ...initialState, id: newProjectId() }),
 
     setNodes: (nodes) => set({ nodes }),
     setEdges: (edges) => set({ edges }),

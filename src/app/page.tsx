@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Plus, FileJson, LayoutDashboard, LogIn, Calendar, Box, Settings, LogOut, Moon, Sun, Monitor, Users } from "lucide-react";
+import { Loader2, Plus, FileJson, LayoutDashboard, LogIn, Calendar, Box, Settings, LogOut, Moon, Sun, Monitor, Users, FileText } from "lucide-react";
 import { driveService } from "@/services/driveService";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +28,7 @@ import { SettingsView } from "@/modules/settings/SettingsView";
 import { StaffMasterView } from "@/modules/dashboard/StaffMasterView";
 import { useSettingsStore } from "@/store/settingsStore";
 import { useMasterDataSync } from "@/hooks/useMasterDataSync";
+import { AllDocumentsView } from "@/modules/reports/AllDocumentsView";
 
 // App Version
 const APP_VERSION = `v0.1.${process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ? process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA.substring(0, 7) : '0'}`;
@@ -42,7 +43,7 @@ export default function LandingPage() {
     useMasterDataSync();
 
     // View State
-    const [view, setView] = useState<'dashboard' | 'open' | 'template' | 'library' | 'settings' | 'staff-master'>('dashboard');
+    const [view, setView] = useState<'dashboard' | 'open' | 'template' | 'library' | 'settings' | 'staff-master' | 'documents'>('dashboard');
 
     // State for Drive Files (_content stores full project data to avoid re-fetch on open)
     const [driveFiles, setDriveFiles] = useState<any[]>([]);
@@ -321,6 +322,17 @@ export default function LandingPage() {
                                         <CardDescription>プロジェクト横断のスタッフ情報を管理します</CardDescription>
                                     </CardHeader>
                                 </Card>
+
+                                {/* Option 7: All Documents */}
+                                <Card className="hover:shadow-lg transition-all cursor-pointer border-2 hover:border-rose-500/50 group" onClick={() => setView('documents')}>
+                                    <CardHeader className="text-center pb-2">
+                                        <div className="mx-auto bg-rose-100 dark:bg-rose-900/20 p-4 rounded-full w-20 h-20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                                            <FileText className="w-10 h-10 text-rose-600" />
+                                        </div>
+                                        <CardTitle>見積・請求書</CardTitle>
+                                        <CardDescription>全プロジェクトの見積書・請求書を確認します</CardDescription>
+                                    </CardHeader>
+                                </Card>
                             </div>
                         </div>
 
@@ -504,6 +516,21 @@ export default function LandingPage() {
                             </Button>
                         </div>
                         <StaffMasterView />
+                    </div>
+                )}
+
+                {view === 'documents' && (
+                    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                        <div className="flex items-center gap-4 border-b pb-4">
+                            <Button variant="ghost" onClick={() => setView('dashboard')}>
+                                ← 戻る
+                            </Button>
+                            <div>
+                                <h2 className="text-2xl font-bold">見積・請求書 一覧</h2>
+                                <p className="text-sm text-muted-foreground mt-0.5">全プロジェクトの書類を横断確認できます</p>
+                            </div>
+                        </div>
+                        <AllDocumentsView />
                     </div>
                 )}
             </main>
