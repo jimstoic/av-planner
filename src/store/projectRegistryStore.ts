@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 import { areIntervalsOverlapping } from 'date-fns';
 
 export interface ProjectSummary {
@@ -9,13 +8,20 @@ export interface ProjectSummary {
     endDate: Date;
     status: 'planning' | 'confirmed' | 'completed' | 'cancelled';
     equipmentUsage: { equipmentId: string; quantity: number }[];
+    // Driveとの連携フィールド
+    driveFolderId?: string;
+    driveFileId?: string;
+    driveFolderName?: string;
+    clientName?: string;
+    venue?: string;
+    memberEmails?: string[];
 }
 
 interface ProjectRegistryState {
     projects: ProjectSummary[];
     registerProject: (project: ProjectSummary) => void;
-    // Check if a specific equipment is available during a period
-    // Returns: { available: boolean, conflictProjectNames: string[], remainingStock: number }
+    removeProject: (id: string) => void;
+    loadFromServer: () => Promise<void>;
     checkAvailability: (
         equipmentId: string,
         totalStock: number,
@@ -25,77 +31,76 @@ interface ProjectRegistryState {
     ) => { available: boolean; conflictProjectNames: string[]; remainingStock: number };
 }
 
-export const useProjectRegistryStore = create<ProjectRegistryState>()(
-    persist(
-        (set, get) => ({
-            projects: [],
+async function apiCall(path: string, options?: RequestInit) {
+    const res = await fetch(path, options);
+    if (!res.ok) console.error('[ProjectRegistryStore]', await res.text());
+}
 
-            registerProject: (project) => set((state) => {
-                const existingIndex = state.projects.findIndex(p => p.id === project.id);
-                if (existingIndex >= 0) {
-                    const newProjects = [...state.projects];
-                    newProjects[existingIndex] = project;
-                    return { projects: newProjects };
-                }
-                return { projects: [...state.projects, project] };
-            }),
+export const useProjectRegistryStore = create<ProjectRegistryState>()((set, get) => ({
+    projects: [],
 
-            checkAvailability: (equipmentId, totalStock, startDate, endDate, excludeProjectId) => {
-                const { projects } = get();
-
-                // Find overlapping projects
-                const overlappingProjects = projects.filter(p => {
-                    if (p.id === excludeProjectId) return false;
-                    if (p.status === 'cancelled') return false; // Ignore cancelled
-
-                    return areIntervalsOverlapping(
-                        { start: new Date(p.startDate), end: new Date(p.endDate) },
-                        { start: new Date(startDate), end: new Date(endDate) },
-                        { inclusive: true }
-                    );
-                });
-
-                let usedQuantity = 0;
-                const conflictNames: string[] = [];
-
-                overlappingProjects.forEach(p => {
-                    const usage = p.equipmentUsage.find(u => u.equipmentId === equipmentId);
-                    if (usage) {
-                        usedQuantity += usage.quantity;
-                        conflictNames.push(p.name);
-                    }
-                });
-
-                const remaining = totalStock - usedQuantity;
-
-                return {
-                    available: remaining > 0,
-                    remainingStock: remaining,
-                    conflictProjectNames: conflictNames
-                };
-            }
-        }),
-        {
-            name: 'av-planner-registry',
-            partialize: (state) => ({
-                projects: state.projects.map(p => ({
+    loadFromServer: async () => {
+        const res = await fetch('/api/db/projects');
+        if (res.ok) {
+            const data: any[] = await res.json();
+            set({
+                projects: data.map(p => ({
                     ...p,
-                    // Ensure dates are strings for JSON
-                    startDate: p.startDate,
-                    endDate: p.endDate
-                }))
-            }),
-
-            onRehydrateStorage: () => (state) => {
-                // Revive dates
-                if (state) {
-                    state.projects = state.projects.map(p => ({
-                        ...p,
-                        startDate: new Date(p.startDate),
-                        endDate: new Date(p.endDate)
-                    }));
-                }
-            }
+                    startDate: p.startDate ? new Date(p.startDate) : new Date(),
+                    endDate: p.endDate ? new Date(p.endDate) : new Date(),
+                })),
+            });
         }
-    )
-);
+    },
+
+    registerProject: (project) => {
+        set((state) => {
+            const idx = state.projects.findIndex(p => p.id === project.id);
+            if (idx >= 0) {
+                const updated = [...state.projects];
+                updated[idx] = project;
+                return { projects: updated };
+            }
+            return { projects: [...state.projects, project] };
+        });
+        apiCall('/api/db/projects', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(project),
+        });
+    },
+
+    removeProject: (id) => {
+        set((state) => ({ projects: state.projects.filter(p => p.id !== id) }));
+        apiCall(`/api/db/projects/${id}`, { method: 'DELETE' });
+    },
+
+    checkAvailability: (equipmentId, totalStock, startDate, endDate, excludeProjectId) => {
+        const { projects } = get();
+        const overlapping = projects.filter(p => {
+            if (p.id === excludeProjectId) return false;
+            if (p.status === 'cancelled') return false;
+            return areIntervalsOverlapping(
+                { start: new Date(p.startDate), end: new Date(p.endDate) },
+                { start: new Date(startDate), end: new Date(endDate) },
+                { inclusive: true }
+            );
+        });
+
+        let usedQuantity = 0;
+        const conflictNames: string[] = [];
+        overlapping.forEach(p => {
+            const usage = p.equipmentUsage.find(u => u.equipmentId === equipmentId);
+            if (usage) {
+                usedQuantity += usage.quantity;
+                conflictNames.push(p.name);
+            }
+        });
+
+        return {
+            available: totalStock - usedQuantity > 0,
+            remainingStock: totalStock - usedQuantity,
+            conflictProjectNames: conflictNames,
+        };
+    },
+}));

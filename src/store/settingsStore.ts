@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 import { CompanyInfo, DEFAULT_COMPANY_INFO } from '@/types/document';
 
 interface SettingsState {
@@ -8,24 +7,45 @@ interface SettingsState {
     defaultArtboardSize: 'A4' | 'A3';
     defaultArtboardOrientation: 'portrait' | 'landscape';
     companyInfo: CompanyInfo;
-
-    // Actions
-    updateSettings: (settings: Partial<Omit<SettingsState, 'updateSettings'>>) => void;
+    updateSettings: (settings: Partial<Omit<SettingsState, 'updateSettings' | 'loadFromServer'>>) => void;
+    loadFromServer: () => Promise<void>;
 }
 
-export const useSettingsStore = create<SettingsState>()(
-    persist(
-        (set) => ({
-            taxRate: 10,
-            currency: '¥',
-            defaultArtboardSize: 'A4',
-            defaultArtboardOrientation: 'landscape',
-            companyInfo: DEFAULT_COMPANY_INFO,
+const DEFAULT_STATE = {
+    taxRate: 10,
+    currency: '¥',
+    defaultArtboardSize: 'A4' as const,
+    defaultArtboardOrientation: 'landscape' as const,
+    companyInfo: DEFAULT_COMPANY_INFO,
+};
 
-            updateSettings: (newSettings) => set((state) => ({ ...state, ...newSettings })),
-        }),
-        {
-            name: 'av-planner-settings',
+let saveTimer: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleSave(settings: Omit<SettingsState, 'updateSettings' | 'loadFromServer'>) {
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+        fetch('/api/db/settings', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(settings),
+        }).catch(e => console.error('[SettingsStore] Save failed', e));
+    }, 1500);
+}
+
+export const useSettingsStore = create<SettingsState>()((set, get) => ({
+    ...DEFAULT_STATE,
+
+    loadFromServer: async () => {
+        const res = await fetch('/api/db/settings');
+        if (res.ok) {
+            const data = await res.json();
+            if (data) set({ ...DEFAULT_STATE, ...data });
         }
-    )
-);
+    },
+
+    updateSettings: (newSettings) => {
+        set((state) => ({ ...state, ...newSettings }));
+        const { updateSettings: _, loadFromServer: __, ...current } = get();
+        scheduleSave({ ...current, ...newSettings });
+    },
+}));
