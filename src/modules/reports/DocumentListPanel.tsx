@@ -41,6 +41,7 @@ import {
 
 export function DocumentListPanel() {
     const projectId = useProjectStore(s => s.driveFileId || s.id);
+    const projectName = useProjectStore(s => s.projectName);
     const {
         documents,
         activeDocumentId,
@@ -52,7 +53,7 @@ export function DocumentListPanel() {
         getDocumentsForProject,
     } = useDocumentStore();
 
-    const projectDocs = getDocumentsForProject(projectId);
+    const projectDocs = getDocumentsForProject(projectId, projectName);
 
     const quotations = projectDocs.filter(d => d.type === 'quotation');
     const invoices = projectDocs.filter(d => d.type === 'invoice');

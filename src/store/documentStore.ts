@@ -100,7 +100,7 @@ interface DocumentStoreActions {
     reorderLineItems: (docId: string, sectionId: string, itemIds: string[]) => void;
 
     // Bulk
-    getDocumentsForProject: (projectId: string) => QuotationDocument[];
+    getDocumentsForProject: (projectId: string, projectTitle?: string) => QuotationDocument[];
     getActiveDocument: () => QuotationDocument | null;
 
     // Auto-populate from project data
@@ -415,9 +415,15 @@ export const useDocumentStore = create<DocumentStoreState & DocumentStoreActions
 
             // ------- Queries -------
 
-            getDocumentsForProject: (projectId) => {
+            getDocumentsForProject: (projectId, projectTitle?) => {
                 return get().documents
-                    .filter(d => d.projectId === projectId)
+                    .filter(d => {
+                        if (d.projectId === projectId) return true;
+                        // Legacy: documents created before UUID fix have projectId='1'.
+                        // Match them by title to avoid showing them under every project.
+                        if (projectTitle && d.projectId === '1' && d.title === projectTitle) return true;
+                        return false;
+                    })
                     .sort((a, b) => {
                         // Group by type, then sort by version desc
                         if (a.type !== b.type) return a.type === 'quotation' ? -1 : 1;
