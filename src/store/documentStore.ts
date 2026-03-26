@@ -77,6 +77,7 @@ interface DocumentStoreState {
 interface DocumentStoreActions {
     // Document CRUD
     createDocument: (projectId: string, type: DocumentType) => string;
+    migrateProjectId: (oldId: string, newId: string, projectTitle: string) => void;
     deleteDocument: (docId: string) => void;
     updateDocumentField: (docId: string, fields: Partial<QuotationDocument>) => void;
     setActiveDocument: (docId: string | null) => void;
@@ -141,6 +142,11 @@ export const useDocumentStore = create<DocumentStoreState & DocumentStoreActions
                     issueDate: new Date(),
                     validUntil: type === 'quotation' ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) : undefined,
                     companyInfo: DEFAULT_COMPANY_INFO,
+                    // Project info snapshot
+                    clientName: project.clientName || undefined,
+                    venue: project.venue || undefined,
+                    eventStartDate: project.startDate,
+                    eventEndDate: project.endDate,
                     createdAt: new Date(),
                     updatedAt: new Date(),
                 };
@@ -395,6 +401,18 @@ export const useDocumentStore = create<DocumentStoreState & DocumentStoreActions
                 }));
             },
 
+            // Migrate documents from old projectId to new one (for projects created before UUID fix)
+            migrateProjectId: (oldId, newId, projectTitle) => {
+                set(state => ({
+                    documents: state.documents.map(d => {
+                        if (d.projectId === oldId && d.title === projectTitle) {
+                            return { ...d, projectId: newId };
+                        }
+                        return d;
+                    }),
+                }));
+            },
+
             // ------- Queries -------
 
             getDocumentsForProject: (projectId) => {
@@ -499,6 +517,8 @@ export const useDocumentStore = create<DocumentStoreState & DocumentStoreActions
                         issueDate: new Date(d.issueDate),
                         validUntil: d.validUntil ? new Date(d.validUntil) : undefined,
                         dueDate: d.dueDate ? new Date(d.dueDate) : undefined,
+                        eventStartDate: d.eventStartDate ? new Date(d.eventStartDate) : undefined,
+                        eventEndDate: d.eventEndDate ? new Date(d.eventEndDate) : undefined,
                         createdAt: new Date(d.createdAt),
                         updatedAt: new Date(d.updatedAt),
                     }));

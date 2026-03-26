@@ -374,8 +374,8 @@ export function DocumentEditor() {
                                 </div>
                             </div>
 
-                            {/* Title & Client */}
-                            <div className="mb-8">
+                            {/* Title & Project Info */}
+                            <div className="mb-8 space-y-3">
                                 {isReadOnly ? (
                                     <h2 className="text-xl font-bold text-slate-800">{doc.title}</h2>
                                 ) : (
@@ -385,6 +385,31 @@ export function DocumentEditor() {
                                         onChange={(e) => updateDocumentField(doc.id, { title: e.target.value })}
                                         placeholder="件名を入力..."
                                     />
+                                )}
+                                {(doc.clientName || doc.venue || doc.eventStartDate) && (
+                                    <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-sm text-slate-600 border-t pt-3">
+                                        {doc.clientName && (
+                                            <div className="flex gap-2">
+                                                <span className="text-slate-400 shrink-0">クライアント</span>
+                                                <span className="font-medium text-slate-800">{doc.clientName}</span>
+                                            </div>
+                                        )}
+                                        {doc.venue && (
+                                            <div className="flex gap-2">
+                                                <span className="text-slate-400 shrink-0">会場</span>
+                                                <span className="font-medium text-slate-800">{doc.venue}</span>
+                                            </div>
+                                        )}
+                                        {doc.eventStartDate && (
+                                            <div className="flex gap-2">
+                                                <span className="text-slate-400 shrink-0">実施日</span>
+                                                <span className="font-medium text-slate-800">
+                                                    {format(new Date(doc.eventStartDate), 'yyyy年MM月dd日')}
+                                                    {doc.eventEndDate && ` 〜 ${format(new Date(doc.eventEndDate), 'yyyy年MM月dd日')}`}
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
                                 )}
                             </div>
 

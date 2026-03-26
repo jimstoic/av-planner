@@ -29,6 +29,7 @@ import { StaffMasterView } from "@/modules/dashboard/StaffMasterView";
 import { useSettingsStore } from "@/store/settingsStore";
 import { useMasterDataSync } from "@/hooks/useMasterDataSync";
 import { AllDocumentsView } from "@/modules/reports/AllDocumentsView";
+import { useDocumentStore } from "@/store/documentStore";
 
 // App Version
 const APP_VERSION = `v0.1.${process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ? process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA.substring(0, 7) : '0'}`;
@@ -37,6 +38,7 @@ export default function LandingPage() {
     const { data: session, status } = useSession();
     const router = useRouter();
     const { loadProject, resetProject } = useProjectStore();
+    const { migrateProjectId } = useDocumentStore();
     const { setTheme } = useTheme();
 
     // マスターデータをDriveと自動同期
@@ -126,6 +128,11 @@ export default function LandingPage() {
                 equipmentOverrides: data.equipmentOverrides || {},
                 editingEdgeId: null
             });
+
+            // Migrate old documents (created before UUID fix, projectId='1') to use driveFileId
+            if (fileId && data.projectName) {
+                migrateProjectId('1', fileId, data.projectName);
+            }
 
             toast.success("読み込み完了", { id: toastId });
             router.push('/project');

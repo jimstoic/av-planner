@@ -88,6 +88,12 @@ export interface QuotationDocument {
     // Company info snapshot
     companyInfo: CompanyInfo;
 
+    // Project info snapshot (captured at document creation)
+    clientName?: string;
+    venue?: string;
+    eventStartDate?: Date;
+    eventEndDate?: Date;
+
     // Metadata
     createdAt: Date;
     updatedAt: Date;

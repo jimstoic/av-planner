@@ -40,7 +40,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 export function DocumentListPanel() {
-    const projectId = useProjectStore(s => s.id);
+    const projectId = useProjectStore(s => s.driveFileId || s.id);
     const {
         documents,
         activeDocumentId,
