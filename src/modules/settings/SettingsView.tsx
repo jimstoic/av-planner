@@ -1,25 +1,50 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useSettingsStore } from '@/store/settingsStore';
+import { useEquipmentStore } from '@/store/equipmentStore';
+import { useStaffMasterStore } from '@/store/staffMasterStore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
-import { Settings as SettingsIcon, Landmark, Cloud, Layout, Building2 } from 'lucide-react';
+import { Settings as SettingsIcon, Landmark, Cloud, Layout, Building2, Download } from 'lucide-react';
 import { toast } from 'sonner';
 
 export function SettingsView() {
+    const [isImporting, setIsImporting] = useState(false);
     const {
         taxRate,
         currency,
         defaultArtboardSize,
         defaultArtboardOrientation,
         companyInfo,
-        updateSettings
+        updateSettings,
+        loadFromServer: reloadSettings,
     } = useSettingsStore();
+    const { loadFromServer: reloadEquipment } = useEquipmentStore();
+    const { loadFromServer: reloadStaff } = useStaffMasterStore();
+
+    const handleImportFromDrive = async () => {
+        setIsImporting(true);
+        try {
+            const res = await fetch('/api/db/import-from-drive', { method: 'POST' });
+            const data = await res.json();
+            if (!res.ok) {
+                toast.error(data.error || 'インポートに失敗しました');
+                return;
+            }
+            // ストアをリロード
+            await Promise.all([reloadEquipment(), reloadStaff(), reloadSettings()]);
+            toast.success(`インポート完了: 機材 ${data.importedEquipment}件、スタッフ ${data.importedStaff}件`);
+        } catch (e) {
+            toast.error('インポート中にエラーが発生しました');
+        } finally {
+            setIsImporting(false);
+        }
+    };
 
     const updateCompanyField = (field: string, value: string) => {
         updateSettings({
@@ -220,6 +245,22 @@ export function SettingsView() {
                             <p className="text-xs text-muted-foreground">
                                 ※ このIDは環境変数 `.env` で管理されています。変更が必要な場合はシステム管理者に連絡してください。
                             </p>
+                        </div>
+
+                        <div className="border-t pt-4 space-y-2">
+                            <Label className="flex items-center gap-2">
+                                <Download className="w-4 h-4" /> Google Driveからデータをインポート
+                            </Label>
+                            <p className="text-xs text-muted-foreground">
+                                Google Driveに保存されている旧マスターデータ（機材・スタッフ・設定）をSupabaseに一括インポートします。既存のデータは上書きされます。
+                            </p>
+                            <Button
+                                variant="outline"
+                                onClick={handleImportFromDrive}
+                                disabled={isImporting}
+                            >
+                                {isImporting ? 'インポート中...' : 'Driveからインポート'}
+                            </Button>
                         </div>
                     </CardContent>
                 </Card>
