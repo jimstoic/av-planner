@@ -428,7 +428,7 @@ export const useDocumentStore = create<DocumentStoreState & DocumentStoreActions
                         quantity: 1,
                         unit: '人',
                         days: s.daysAssigned || duration,
-                        unitPrice: s.dayRate,
+                        unitPrice: 0, // 見積もり画面で手入力
                         sourceType: 'staff',
                         sourceId: s.id,
                         sortOrder: idx,

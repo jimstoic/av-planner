@@ -8,7 +8,6 @@ import { persist } from 'zustand/middleware';
 export interface StaffMaster {
     id: string;
     name: string;
-    dayRate: number;
     email: string;
     phone?: string;
     isExternal?: boolean; // 外部スタッフフラグ

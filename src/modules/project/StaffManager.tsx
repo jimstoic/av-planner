@@ -80,7 +80,6 @@ export function StaffManager() {
                 addStaff({
                     name: m.name,
                     role: roles[m.id] || '',
-                    dayRate: m.dayRate,
                     daysAssigned: 0,
                     email: m.email || '',
                 });
@@ -109,7 +108,7 @@ export function StaffManager() {
 
     // Manual add/edit
     const handleOpenManual = (s?: Staff) => {
-        setEditingStaff(s ? { ...s } : { name: '', role: '', dayRate: 0, email: '' });
+        setEditingStaff(s ? { ...s } : { name: '', role: '', email: '' });
         setIsManualDialogOpen(true);
     };
 
@@ -125,7 +124,6 @@ export function StaffManager() {
             addStaff({
                 name: editingStaff.name,
                 role: editingStaff.role || '',
-                dayRate: editingStaff.dayRate || 0,
                 daysAssigned: 0,
                 email: editingStaff.email || '',
             });
@@ -165,7 +163,6 @@ export function StaffManager() {
                         <TableRow className="bg-muted/50">
                             <TableHead>名前</TableHead>
                             <TableHead>役割（今案件）</TableHead>
-                            <TableHead className="text-right">日当</TableHead>
                             <TableHead className="w-[90px]"></TableHead>
                         </TableRow>
                     </TableHeader>
@@ -189,9 +186,6 @@ export function StaffManager() {
                                     </TableCell>
                                     <TableCell className="text-muted-foreground">
                                         {s.role || <span className="text-muted-foreground/50 italic text-xs">未設定</span>}
-                                    </TableCell>
-                                    <TableCell className="text-right font-mono text-sm">
-                                        ¥{s.dayRate.toLocaleString()}
                                     </TableCell>
                                     <TableCell>
                                         <div className="flex justify-end gap-1">
@@ -246,9 +240,7 @@ export function StaffManager() {
                                         />
                                         <div className="flex-1 min-w-0">
                                             <div className="font-medium text-sm">{m.name}</div>
-                                            <div className="text-xs text-muted-foreground font-mono">
-                                                ¥{m.dayRate.toLocaleString()}/日
-                                            </div>
+                                            {m.email && <div className="text-xs text-muted-foreground">{m.email}</div>}
                                         </div>
                                     </div>
                                     {checked && (
@@ -302,16 +294,6 @@ export function StaffManager() {
                                 value={editingStaff?.role || ''}
                                 onChange={(e) => setEditingStaff(p => ({ ...p, role: e.target.value }))}
                                 placeholder="今案件での役割（例: Camera）"
-                            />
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label className="text-right">日当 (¥)</Label>
-                            <Input
-                                type="number"
-                                className="col-span-3"
-                                value={editingStaff?.dayRate || ''}
-                                onChange={(e) => setEditingStaff(p => ({ ...p, dayRate: e.target.value === '' ? 0 : Number(e.target.value) }))}
-                                placeholder="0"
                             />
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">

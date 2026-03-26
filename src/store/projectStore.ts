@@ -7,7 +7,6 @@ export interface Staff {
     id: string;
     name: string;
     role: string;
-    dayRate: number;
     daysAssigned: number;
     email?: string;
 }

@@ -44,7 +44,7 @@ export default function LandingPage() {
     // View State
     const [view, setView] = useState<'dashboard' | 'open' | 'template' | 'library' | 'settings' | 'staff-master'>('dashboard');
 
-    // State for Drive Files
+    // State for Drive Files (_content stores full project data to avoid re-fetch on open)
     const [driveFiles, setDriveFiles] = useState<any[]>([]);
     const [isLoadingFiles, setIsLoadingFiles] = useState(false);
     const [filterMode, setFilterMode] = useState<'all' | 'mine'>('all');
@@ -76,17 +76,20 @@ export default function LandingPage() {
             const data = await driveService.searchFiles(session!.accessToken!, query);
 
             if (data.files) {
-                // Fetch full content to check members if in 'mine' mode or to show detailed info
-                // Optimization: In a real app we'd want indexed search, but for Drive we fetch summaries.
-                const allProjects = await Promise.all((data.files as any[]).map(async (f) => {
-                    try {
-                        const content = await driveService.getFileContent(session!.accessToken!, f.id);
-                        return { ...f, members: content.members || [] };
-                    } catch {
-                        return { ...f, members: [] };
-                    }
-                }));
-
+                // Fetch full content for each file, cache it to avoid re-fetch on open.
+                // Filter out internal master data file.
+                const allProjects = await Promise.all(
+                    (data.files as any[])
+                        .filter((f: any) => !f.name.startsWith('_'))
+                        .map(async (f: any) => {
+                            try {
+                                const content = await driveService.getFileContent(session!.accessToken!, f.id);
+                                return { ...f, members: content.members || [], _content: content };
+                            } catch {
+                                return { ...f, members: [], _content: null };
+                            }
+                        })
+                );
                 setDriveFiles(allProjects);
             }
         } catch (error) {
@@ -102,16 +105,16 @@ export default function LandingPage() {
         router.push('/project');
     };
 
-    const handleLoadFile = async (fileId: string, fileName: string) => {
+    const handleLoadFile = async (fileId: string, fileName: string, cachedContent?: any) => {
         const toastId = toast.loading(`${fileName} を読み込み中...`);
         try {
-            const data = await driveService.getFileContent(session!.accessToken!, fileId);
+            // Use cached content from file list fetch to avoid redundant Drive API call
+            const data = cachedContent ?? await driveService.getFileContent(session!.accessToken!, fileId);
 
-            // Load into Store
             loadProject({
                 ...data,
-                driveFolderId: '',
-                driveFolderName: '',
+                driveFolderId: data.driveFolderId || '',
+                driveFolderName: data.driveFolderName || '',
                 driveFileId: fileId,
                 id: data.id || 'imported-project',
                 members: data.members || [],
@@ -122,8 +125,6 @@ export default function LandingPage() {
                 equipmentOverrides: data.equipmentOverrides || {},
                 editingEdgeId: null
             });
-
-            useProjectStore.setState({ driveFileId: fileId });
 
             toast.success("読み込み完了", { id: toastId });
             router.push('/project');
@@ -400,7 +401,7 @@ export default function LandingPage() {
                                             <Card
                                                 key={file.id}
                                                 className="group cursor-pointer hover:shadow-md transition-all border-muted/60 hover:border-primary/50"
-                                                onClick={() => handleLoadFile(file.id, file.name)}
+                                                onClick={() => handleLoadFile(file.id, file.name, file._content)}
                                             >
                                                 <CardHeader className="pb-3">
                                                     <div className="flex justify-between items-start gap-2">
@@ -424,7 +425,7 @@ export default function LandingPage() {
                                             <div
                                                 key={file.id}
                                                 className="flex items-center justify-between p-4 bg-card border rounded-lg hover:border-primary/50 cursor-pointer group transition-all"
-                                                onClick={() => handleLoadFile(file.id, file.name)}
+                                                onClick={() => handleLoadFile(file.id, file.name, file._content)}
                                             >
                                                 <div className="flex items-center gap-4">
                                                     <div className="bg-primary/10 p-2 rounded-md">

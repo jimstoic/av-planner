@@ -18,7 +18,7 @@ export function StaffMasterView() {
     const [editing, setEditing] = useState<Partial<StaffMaster> | null>(null);
 
     const handleOpen = (staff?: StaffMaster) => {
-        setEditing(staff ? { ...staff } : { name: '', dayRate: 0, email: '', isExternal: false });
+        setEditing(staff ? { ...staff } : { name: '', email: '', isExternal: false });
         setIsDialogOpen(true);
     };
 
@@ -33,7 +33,6 @@ export function StaffMasterView() {
         } else {
             addMasterStaff({
                 name: editing.name,
-                dayRate: editing.dayRate || 0,
                 email: editing.email || '',
                 phone: editing.phone || '',
                 isExternal: editing.isExternal || false,
@@ -91,7 +90,6 @@ export function StaffMasterView() {
                                     <TableRow className="bg-muted/50">
                                         <TableHead>名前</TableHead>
                                         <TableHead className="w-[80px]">区分</TableHead>
-                                        <TableHead className="text-right">日当</TableHead>
                                         <TableHead>Email</TableHead>
                                         <TableHead className="w-[100px]"></TableHead>
                                     </TableRow>
@@ -108,9 +106,6 @@ export function StaffMasterView() {
                                                 ) : (
                                                     <span className="text-[10px] text-muted-foreground">社員</span>
                                                 )}
-                                            </TableCell>
-                                            <TableCell className="text-right font-mono">
-                                                ¥{s.dayRate.toLocaleString()}
                                             </TableCell>
                                             <TableCell className="text-muted-foreground text-sm">
                                                 {s.email || '—'}
@@ -157,16 +152,6 @@ export function StaffMasterView() {
                                 value={editing?.name || ''}
                                 onChange={(e) => setEditing(p => ({ ...p, name: e.target.value }))}
                                 placeholder="山田 太郎"
-                            />
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label className="text-right">日当 (¥)</Label>
-                            <Input
-                                type="number"
-                                className="col-span-3"
-                                value={editing?.dayRate || ''}
-                                onChange={(e) => setEditing(p => ({ ...p, dayRate: e.target.value === '' ? 0 : Number(e.target.value) }))}
-                                placeholder="0"
                             />
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
