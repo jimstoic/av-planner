@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Plus, FileJson, LayoutDashboard, LogIn, Calendar, Box, Settings, LogOut, Moon, Sun, Monitor, Users, FileText } from "lucide-react";
+import { Loader2, Plus, FileJson, LayoutDashboard, LogIn, Calendar, Box, Settings, LogOut, Moon, Sun, Monitor, Users, FileText, UserCog } from "lucide-react";
 import { driveService } from "@/services/driveService";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +25,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { signOut } from "next-auth/react";
 import { useTheme } from "next-themes";
 import { SettingsView } from "@/modules/settings/SettingsView";
+import { OrgSettingsCard } from "@/modules/settings/OrgSettingsCard";
+import { UserSettingsPanel } from "@/modules/settings/UserSettingsPanel";
 import { StaffMasterView } from "@/modules/dashboard/StaffMasterView";
 import { useSettingsStore } from "@/store/settingsStore";
 import { useMasterDataSync } from "@/hooks/useMasterDataSync";
@@ -46,6 +48,7 @@ export default function LandingPage() {
 
     // View State
     const [view, setView] = useState<'dashboard' | 'open' | 'template' | 'library' | 'settings' | 'staff-master' | 'documents'>('dashboard');
+    const [userSettingsOpen, setUserSettingsOpen] = useState(false);
 
     // State for Drive Files (_content stores full project data to avoid re-fetch on open)
     const [driveFiles, setDriveFiles] = useState<any[]>([]);
@@ -223,9 +226,13 @@ export default function LandingPage() {
                                     </div>
                                 </DropdownMenuLabel>
                                 <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => setUserSettingsOpen(true)}>
+                                    <UserCog className="mr-2 h-4 w-4" />
+                                    <span>ユーザー設定</span>
+                                </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => setView('settings')}>
                                     <Settings className="mr-2 h-4 w-4" />
-                                    <span>Settings</span>
+                                    <span>クラウド設定</span>
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => setTheme("light")}>
@@ -250,6 +257,8 @@ export default function LandingPage() {
                     )}
                 </div>
             </header>
+
+            <UserSettingsPanel open={userSettingsOpen} onOpenChange={setUserSettingsOpen} />
 
             <main className="p-6 md:p-10 max-w-7xl mx-auto space-y-8">
                 {view === 'dashboard' && (
@@ -308,6 +317,7 @@ export default function LandingPage() {
                         <div className="mt-8 pt-8 border-t">
                             <h3 className="text-xl font-bold tracking-tight mb-4 text-muted-foreground">管理ツール</h3>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                                <OrgSettingsCard />
                                 {/* Option 5: Equipment Master */}
                                 <Card className="hover:shadow-lg transition-all cursor-pointer border-2 hover:border-orange-500/50 group" onClick={() => setView('library')}>
                                     <CardHeader className="text-center pb-2">

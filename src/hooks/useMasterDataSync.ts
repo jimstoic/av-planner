@@ -8,10 +8,11 @@ import { useStaffMasterStore } from '@/store/staffMasterStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useProjectRegistryStore } from '@/store/projectRegistryStore';
 import { useDocumentStore } from '@/store/documentStore';
+import { useOrgSettingsStore } from '@/store/orgSettingsStore';
+import { useUserPreferencesStore } from '@/store/userPreferencesStore';
 
 /**
  * ログイン後にSupabaseからマスターデータを一括ロードするhook。
- * Google Driveへの依存を廃止し、Supabase APIルート経由でデータを取得する。
  */
 export function useMasterDataSync() {
     const { status } = useSession();
@@ -22,6 +23,8 @@ export function useMasterDataSync() {
     const { loadFromServer: loadSettings } = useSettingsStore();
     const { loadFromServer: loadProjects } = useProjectRegistryStore();
     const { loadFromServer: loadDocuments } = useDocumentStore();
+    const { loadFromServer: loadOrgSettings } = useOrgSettingsStore();
+    const { loadFromServer: loadUserPreferences } = useUserPreferencesStore();
 
     useEffect(() => {
         if (status !== 'authenticated' || hasLoadedRef.current) return;
@@ -35,6 +38,8 @@ export function useMasterDataSync() {
                     loadSettings(),
                     loadProjects(),
                     loadDocuments(),
+                    loadOrgSettings(),
+                    loadUserPreferences(),
                 ]);
                 toast.success('データを読み込みました', { duration: 2000 });
             } catch (e) {
